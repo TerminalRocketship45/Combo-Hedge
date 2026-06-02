@@ -183,7 +183,9 @@ def main():
         Path(args.csv).write_text(csv_text, encoding="utf-8")
         print(f"  CSV written to: {args.csv}")
 
-    webbrowser.open(f"file://{output_path}")
+    # Windows requires file:/// with forward slashes
+    file_url = "file:///" + str(Path(output_path).resolve()).replace("\\", "/")
+    webbrowser.open(file_url)
     print("\nOpened in browser.")
     print("Re-run within 60s of placing orders for best accuracy.")
     print("This tool does not place bets -- all allocations are recommendations only.")
