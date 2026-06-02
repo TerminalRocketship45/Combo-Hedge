@@ -112,7 +112,7 @@ def main():
 
     print("Discovering Game 1 markets and creating combo markets...")
     market_tickers, combo_tickers = discover_all(client, series_ticker, cache)
-    print(f"  → {len(combo_tickers)} combos ready")
+    print(f"  -> {len(combo_tickers)} combos ready")
 
     print("Fetching market prices for probability model...")
     market_prices = get_market_prices_from_api(client, market_tickers)
