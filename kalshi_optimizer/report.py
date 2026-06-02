@@ -1,7 +1,9 @@
-"""Generate a self-contained dark-terminal HTML report for the Kalshi combo optimizer."""
+"""Generate a self-contained dark-terminal HTML report and CSV for the Kalshi combo optimizer."""
 
 from __future__ import annotations
 
+import csv
+import io
 import json
 from decimal import Decimal
 from typing import TYPE_CHECKING
@@ -74,8 +76,9 @@ def _build_combo_index() -> dict[tuple, str]:
     return idx
 
 
-def _render_allocation_table(result: "OptimizationResult") -> str:
+def _render_allocation_table(result: "OptimizationResult", is_estimated: bool = True) -> str:
     combo_idx = _build_combo_index()
+    est_badge = ' <span class="est-badge">EST</span>' if is_estimated else ' <span class="live-badge">LIVE</span>'
 
     header_cells = "".join(
         f'<th class="th-col">{label}</th>' for _, _, label in _COLUMNS
@@ -91,21 +94,57 @@ def _render_allocation_table(result: "OptimizationResult") -> str:
             if cid is None:
                 cells += '<td class="alloc-cell alloc-na">—</td>'
                 continue
-            fp = result.fill_prices[cid]
-            contracts = result.contracts[cid]
+            fp          = result.fill_prices[cid]
+            contracts   = result.contracts[cid]
             actual_cost = result.actual_costs[cid]
-            multiplier = Decimal("1") / fp  # nominal_multiplier
+            multiplier  = Decimal("1") / fp
             cells += (
                 f'<td class="alloc-cell">'
-                f'<span class="combo-id">{cid}</span>'
-                f'<div class="alloc-stake">${_fmt(actual_cost)}</div>'
+                f'<div class="alloc-mult">{_fmt(multiplier, 2)}x{est_badge}</div>'
+                f'<div class="alloc-stake">stake ${_fmt(actual_cost)}</div>'
                 f'<div class="alloc-detail">{_fmt(contracts)} contracts</div>'
-                f'<div class="alloc-detail">{_fmt(multiplier, 2)}x @ ${_fmt(fp)}</div>'
+                f'<div class="alloc-detail combo-id">{cid}</div>'
                 f'</td>'
             )
         rows_html += f'<tr><td class="td-margin">{row_label}</td>{cells}</tr>'
 
     return f'<table class="alloc-table">{header_row}{rows_html}</table>'
+
+
+# ---------------------------------------------------------------------------
+# CSV generator
+# ---------------------------------------------------------------------------
+
+def generate_csv(result: "OptimizationResult", is_estimated: bool = True) -> str:
+    """Return a CSV string with one row per combo."""
+    out = io.StringIO()
+    writer = csv.writer(out)
+    writer.writerow([
+        "combo_id", "description", "winner", "margin_threshold", "total",
+        "multiplier", "price_source", "fill_price",
+        "recommended_stake", "contracts", "payout_if_win",
+    ])
+    for combo in COMBOS:
+        cid  = combo["id"]
+        fp   = result.fill_prices[cid]
+        mult = Decimal("1") / fp
+        cost = result.actual_costs[cid]
+        ctrs = result.contracts[cid]
+        desc = f"{combo['winner'].capitalize()} win + under {combo['margin']} pts + {combo['total']} 217.5"
+        writer.writerow([
+            cid,
+            desc,
+            combo["winner"].capitalize(),
+            f"under {combo['margin']}",
+            combo["total"],
+            f"{float(mult):.2f}x",
+            "ESTIMATED" if is_estimated else "LIVE",
+            f"{float(fp):.4f}",
+            f"{float(cost):.2f}",
+            f"{float(ctrs):.2f}",
+            f"{float(ctrs):.2f}",  # payout = contracts * $1
+        ])
+    return out.getvalue()
 
 
 # ---------------------------------------------------------------------------
@@ -173,11 +212,19 @@ def generate_html(
     budget: Decimal,
     max_loss: Decimal,
     fetched_at: str,
+    is_estimated: bool = True,
 ) -> str:
     """Return a complete, self-contained HTML string for the optimizer report."""
 
     scenario_data_json = json.dumps(_build_scenario_data(result), indent=2)
-    allocation_table_html = _render_allocation_table(result)
+    allocation_table_html = _render_allocation_table(result, is_estimated=is_estimated)
+    price_banner = (
+        '<div class="est-banner">ESTIMATED PRICES &mdash; multipliers are calculated from individual market '
+        'leg probabilities because no market makers have posted quotes on these combos yet. '
+        'Re-run closer to tipoff for live quotes.</div>'
+        if is_estimated else
+        '<div class="live-banner">LIVE PRICES &mdash; multipliers sourced from live Kalshi orderbook.</div>'
+    )
 
     worst_class = "neg" if result.worst_profit < 0 else "pos"
     avg_class = "pos" if result.avg_profit >= 0 else "neg"
@@ -336,16 +383,57 @@ def generate_html(
       letter-spacing: 0.12em;
       color: var(--gold);
     }}
+    .alloc-mult {{
+      font-size: 20px;
+      font-weight: bold;
+      color: var(--green);
+      letter-spacing: -0.02em;
+    }}
     .alloc-stake {{
-      font-size: 14px;
+      font-size: 13px;
       font-weight: bold;
       color: var(--text);
-      margin-top: 2px;
+      margin-top: 3px;
     }}
     .alloc-detail {{
       font-size: 10px;
       color: var(--muted);
       margin-top: 1px;
+    }}
+    .est-badge {{
+      font-size: 8px;
+      background: #3a2a00;
+      color: var(--gold);
+      padding: 1px 4px;
+      letter-spacing: 0.12em;
+      vertical-align: middle;
+    }}
+    .live-badge {{
+      font-size: 8px;
+      background: #0a2a0a;
+      color: var(--green);
+      padding: 1px 4px;
+      letter-spacing: 0.12em;
+      vertical-align: middle;
+    }}
+    .est-banner {{
+      background: #1a1500;
+      border: 1px solid #5a4a00;
+      color: var(--gold);
+      font-size: 11px;
+      padding: 10px 14px;
+      margin-bottom: 20px;
+      letter-spacing: 0.04em;
+      line-height: 1.6;
+    }}
+    .live-banner {{
+      background: #0a1a0a;
+      border: 1px solid #1a5a1a;
+      color: var(--green);
+      font-size: 11px;
+      padding: 10px 14px;
+      margin-bottom: 20px;
+      letter-spacing: 0.04em;
     }}
 
     /* ---- Scenario cards ---- */
@@ -517,7 +605,8 @@ def generate_html(
   </div>
 
   <!-- ============================================================ ALLOCATION -->
-  <div class="section-title">ALLOCATION TABLE</div>
+  <div class="section-title">ALLOCATION TABLE &mdash; BET SIZES &amp; MULTIPLIERS</div>
+  { price_banner }
 
   <div class="budget-bar">
     <div class="budget-item">BUDGET: <span>${ _fmt(budget) }</span></div>
