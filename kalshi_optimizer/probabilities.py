@@ -81,5 +81,5 @@ def get_market_prices_from_api(client, market_tickers: dict) -> dict:
         ticker = ticker_tuple[0] if isinstance(ticker_tuple, (tuple, list)) else ticker_tuple
         resp = client.get(f"/markets/{ticker}")
         market = resp.get("market", resp)
-        prices[key] = Decimal(str(market.get("yes_ask", "0.5")))
+        prices[key] = Decimal(str(market.get("yes_ask_dollars", market.get("yes_ask", "0.5"))))
     return prices

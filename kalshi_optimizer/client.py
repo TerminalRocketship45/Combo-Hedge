@@ -4,8 +4,9 @@ import requests
 from tenacity import retry, stop_after_attempt, wait_exponential, retry_if_exception_type
 from auth import sign_request, load_private_key
 
-PROD_BASE = "https://api.elections.kalshi.com/trade-api/v2"
-DEMO_BASE = "https://demo-api.kalshi.co/trade-api/v2"
+PROD_BASE   = "https://api.elections.kalshi.com/trade-api/v2"
+DEMO_BASE   = "https://demo-api.kalshi.co/trade-api/v2"
+_API_PREFIX = "/trade-api/v2"   # prepended to path in RSA-PSS signature
 
 _last_call_times: list = []
 _MAX_READS_PER_SEC = 18   # stay under 20/s limit
@@ -19,6 +20,16 @@ def _rate_limit():
     _last_call_times.append(time.monotonic())
 
 
+def _should_retry(exc: Exception) -> bool:
+    if not isinstance(exc, requests.HTTPError):
+        return False
+    resp = exc.response
+    if resp is None:
+        return True
+    # Only retry rate-limit and server errors; not auth/client errors
+    return resp.status_code == 429 or resp.status_code >= 500
+
+
 class KalshiClient:
     def __init__(self, demo: bool = False):
         self.base = DEMO_BASE if demo else PROD_BASE
@@ -26,12 +37,13 @@ class KalshiClient:
         self.private_key = load_private_key(os.environ["KALSHI_PRIVATE_KEY_PATH"])
 
     def _headers(self, method: str, path: str) -> dict:
-        return sign_request(self.private_key, self.key_id, method, path)
+        # Kalshi signature must include /trade-api/v2 prefix in the path
+        return sign_request(self.private_key, self.key_id, method, _API_PREFIX + path)
 
     @retry(
         retry=retry_if_exception_type(requests.HTTPError),
         wait=wait_exponential(multiplier=1, min=1, max=30),
-        stop=stop_after_attempt(5),
+        stop=stop_after_attempt(3),
     )
     def get(self, path: str, params: dict = None) -> dict:
         _rate_limit()
@@ -46,13 +58,15 @@ class KalshiClient:
         )
         if resp.status_code == 429:
             raise requests.HTTPError("Rate limited", response=resp)
+        if _should_retry(requests.HTTPError(response=resp)) and not resp.ok:
+            resp.raise_for_status()
         resp.raise_for_status()
         return resp.json()
 
     @retry(
         retry=retry_if_exception_type(requests.HTTPError),
         wait=wait_exponential(multiplier=1, min=1, max=30),
-        stop=stop_after_attempt(5),
+        stop=stop_after_attempt(3),
     )
     def post(self, path: str, body: dict) -> dict:
         _rate_limit()
