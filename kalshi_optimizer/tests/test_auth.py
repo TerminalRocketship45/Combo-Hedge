@@ -1,5 +1,4 @@
 import time
-from unittest.mock import MagicMock
 from auth import sign_request
 
 def _make_key():

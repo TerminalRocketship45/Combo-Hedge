@@ -2,6 +2,7 @@ import time
 import base64
 from cryptography.hazmat.primitives import hashes
 from cryptography.hazmat.primitives.asymmetric import padding
+from cryptography.hazmat.primitives.serialization import load_pem_private_key
 
 
 def sign_request(private_key, key_id: str, method: str, path: str) -> dict:
@@ -20,6 +21,5 @@ def sign_request(private_key, key_id: str, method: str, path: str) -> dict:
 
 
 def load_private_key(pem_path: str):
-    from cryptography.hazmat.primitives.serialization import load_pem_private_key
     with open(pem_path, "rb") as f:
         return load_pem_private_key(f.read(), password=None)
