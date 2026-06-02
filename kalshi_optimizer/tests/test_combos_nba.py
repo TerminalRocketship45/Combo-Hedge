@@ -53,10 +53,29 @@ def test_highest_margin_range_pays_one_combo():
     assert paying_combos[0]["margin"] == Decimal("16.5")
 
 def test_net_profit_correct_formula():
-    # 1 combo wins at 14.8x with stake $1, 1 combo loses with stake $1
-    # net = $14.80 - $2.00 = $12.80 (NOT $14.80 - $1.00 = $13.80)
-    costs = {"C1": Decimal("1.00"), "C2": Decimal("1.00")}
-    payouts = {"C1": Decimal("14.80"), "C2": Decimal("0")}
-    total_cost = Decimal("2.00")
-    net = sum(payouts.values()) - total_cost
-    assert net == Decimal("12.80")
+    # Scenario: Spurs win by 1-4 pts, over 217.5 → C1, C3, C5 pay out (3 contracts each)
+    # C2 loses. Net = (3+3+3) contracts * $1 - sum(contracts * fill for all combos)
+    scenario = next(s for s in SCENARIOS if s["winner"] == "spurs" and s["margin_range"] == "0to4.5" and s["total"] == "over")
+    # Give every combo 10 contracts at $0.10 fill price → cost = $1.00 each
+    all_ids = [c["id"] for c in COMBOS]
+    contracts   = {cid: Decimal("10.00") for cid in all_ids}
+    fill_prices = {cid: Decimal("0.10")  for cid in all_ids}
+    # C1, C3, C5 pay (spurs + over, margins 4.5/10.5/16.5 all > 0)
+    # payout = 3 winning combos * 10 contracts * $1 = $30
+    # total_cost = 12 combos * 10 * 0.10 = $12
+    # net = $30 - $12 = $18
+    net = calc_net_profit(scenario, contracts, fill_prices)
+    assert net == Decimal("18.00")
+
+def test_net_profit_subtracts_winning_stakes_too():
+    # Verify that winning combo costs are ALSO subtracted (the JSX bug was not doing this)
+    # Scenario where only C5 wins (spurs + over, margin 10.5to16.5)
+    scenario = next(s for s in SCENARIOS if s["winner"] == "spurs" and s["margin_range"] == "10.5to16.5" and s["total"] == "over")
+    all_ids = [c["id"] for c in COMBOS]
+    contracts   = {cid: Decimal("10.00") for cid in all_ids}
+    fill_prices = {cid: Decimal("0.10")  for cid in all_ids}
+    # Only C5 wins: payout = 10 contracts * $1 = $10
+    # total_cost = 12 * 10 * 0.10 = $12
+    # net = $10 - $12 = -$2.00 (we lost money overall despite C5 paying out)
+    net = calc_net_profit(scenario, contracts, fill_prices)
+    assert net == Decimal("-2.00")
