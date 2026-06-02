@@ -20,10 +20,18 @@ load_dotenv()
 
 def _estimate_missing_fills(fill_prices: dict, market_prices: dict) -> dict:
     """
-    For combos with no live orderbook quotes, estimate YES fill price as the
-    product of individual leg probabilities. This assumes independence between
-    legs — a rough approximation, but better than a flat fallback.
-    Combo leg structure: YES gameline × NO spread × YES/NO total
+    Estimate YES fill price for combos with no live orderbook quotes.
+
+    Correct formula — accounts for gameline/spread correlation:
+      P(team wins AND wins by under X) = P(gameline YES) − P(spread YES)
+
+    This is exact because:
+      P(gameline) = P(team wins)
+      P(spread YES) = P(team wins AND margin > X)
+      Difference = P(team wins AND margin ≤ X)
+
+    Then multiply by the (independent) total leg price.
+    This matches the multipliers Kalshi shows in the app.
     """
     from combos_nba import COMBOS
     result = dict(fill_prices)
@@ -33,17 +41,16 @@ def _estimate_missing_fills(fill_prices: dict, market_prices: dict) -> dict:
             continue
         w = combo["winner"]
         m = str(combo["margin"])
-        p_gameline = market_prices[f"{w}_win"]
-        p_spread_over = market_prices[f"{w}_spread_{m}"]
-        p_spread_no   = Decimal("1") - p_spread_over  # betting NO on spread
+        p_gameline    = market_prices[f"{w}_win"]
+        p_spread_yes  = market_prices[f"{w}_spread_{m}"]  # P(team wins AND wins by over X)
+        p_wins_under  = p_gameline - p_spread_yes          # P(team wins AND wins by under X)
         p_total = (
             market_prices["total_over_217.5"] if combo["total"] == "over"
             else Decimal("1") - market_prices["total_over_217.5"]
         )
-        estimated = p_gameline * p_spread_no * p_total
-        # Kalshi adds vig; estimated price is the theoretical fair value.
-        # Cap at 0.0100 minimum to avoid degenerate optimizer values.
-        result[cid] = max(estimated, Decimal("0.0100"))
+        estimated = p_wins_under * p_total
+        # Cap at minimum to avoid degenerate optimizer values
+        result[cid] = max(estimated, Decimal("0.0050"))
     return result
 
 
