@@ -65,6 +65,7 @@ def main():
     parser.add_argument("--demo",     action="store_true", help="Use demo API (https://demo-api.kalshi.co/trade-api/v2)")
     parser.add_argument("--refresh",  action="store_true", help="Bypass cache and re-discover all markets")
     parser.add_argument("--output",   type=str,   default=None, help="Save HTML to this path (default: temp file)")
+    parser.add_argument("--csv",      type=str,   default=None, help="Also save a CSV to this path (e.g. combos.csv)")
     args = parser.parse_args()
 
     _require_env()
@@ -90,7 +91,7 @@ def main():
     from orderbook import fetch_and_cache_orderbook, compute_vwap_yes_fill
     from probabilities import build_scenario_probs, get_market_prices_from_api
     from optimizer import optimize
-    from report import generate_html
+    from report import generate_html, generate_csv
 
     client = KalshiClient(demo=args.demo)
     cache  = KalshiCache()
@@ -130,7 +131,8 @@ def main():
         else:
             fill_prices[cid] = None  # will be filled with estimates below
 
-    if live_count < len(combo_tickers):
+    is_estimated = live_count < len(combo_tickers)
+    if is_estimated:
         print(f"  {live_count}/{len(combo_tickers)} combos have live quotes. Estimating the rest from leg prices.")
         fill_prices = _estimate_missing_fills(fill_prices, market_prices)
     else:
@@ -145,7 +147,10 @@ def main():
     )
 
     fetched_at = datetime.now().strftime("%H:%M:%S")
-    html = generate_html(result, budget=budget_d, max_loss=max_loss_d, fetched_at=fetched_at)
+    html = generate_html(
+        result, budget=budget_d, max_loss=max_loss_d,
+        fetched_at=fetched_at, is_estimated=is_estimated,
+    )
 
     if args.output:
         output_path = args.output
@@ -162,11 +167,19 @@ def main():
     print(f"  Avg profit:  {float(result.avg_profit):+.2f}")
     print(f"  Expected EV: {float(result.ev):+.2f}")
     print(f"  Deployed:    ${float(result.total_deployed):.2f} of ${budget:.2f}")
+    if is_estimated:
+        print("  NOTE: Prices are ESTIMATED (no live quotes yet). Re-run closer to tipoff.")
+
+    # CSV output
+    if args.csv:
+        csv_text = generate_csv(result, is_estimated=is_estimated)
+        Path(args.csv).write_text(csv_text, encoding="utf-8")
+        print(f"  CSV written to: {args.csv}")
 
     webbrowser.open(f"file://{output_path}")
     print("\nOpened in browser.")
     print("Re-run within 60s of placing orders for best accuracy.")
-    print("This tool does not place bets — all allocations are recommendations only.")
+    print("This tool does not place bets -- all allocations are recommendations only.")
 
 
 if __name__ == "__main__":
