@@ -18,6 +18,35 @@ from dotenv import load_dotenv
 load_dotenv()
 
 
+def _estimate_missing_fills(fill_prices: dict, market_prices: dict) -> dict:
+    """
+    For combos with no live orderbook quotes, estimate YES fill price as the
+    product of individual leg probabilities. This assumes independence between
+    legs — a rough approximation, but better than a flat fallback.
+    Combo leg structure: YES gameline × NO spread × YES/NO total
+    """
+    from combos_nba import COMBOS
+    result = dict(fill_prices)
+    for combo in COMBOS:
+        cid = combo["id"]
+        if result.get(cid) is not None:
+            continue
+        w = combo["winner"]
+        m = str(combo["margin"])
+        p_gameline = market_prices[f"{w}_win"]
+        p_spread_over = market_prices[f"{w}_spread_{m}"]
+        p_spread_no   = Decimal("1") - p_spread_over  # betting NO on spread
+        p_total = (
+            market_prices["total_over_217.5"] if combo["total"] == "over"
+            else Decimal("1") - market_prices["total_over_217.5"]
+        )
+        estimated = p_gameline * p_spread_no * p_total
+        # Kalshi adds vig; estimated price is the theoretical fair value.
+        # Cap at 0.0100 minimum to avoid degenerate optimizer values.
+        result[cid] = max(estimated, Decimal("0.0100"))
+    return result
+
+
 def _require_env():
     missing = [k for k in ("KALSHI_API_KEY_ID", "KALSHI_PRIVATE_KEY_PATH") if not os.environ.get(k)]
     if missing:
@@ -57,7 +86,7 @@ def main():
 
     from client import KalshiClient
     from cache import KalshiCache
-    from discovery import discover_all, find_nba_finals_series
+    from discovery import discover_all, HARDCODED_COLLECTION_TICKER
     from orderbook import fetch_and_cache_orderbook, compute_vwap_yes_fill
     from probabilities import build_scenario_probs, get_market_prices_from_api
     from optimizer import optimize
@@ -74,11 +103,8 @@ def main():
     except Exception:
         pass
 
-    series_ticker = args.series
-    if not series_ticker:
-        print("Finding NBA Finals series ticker...")
-        series_ticker = find_nba_finals_series(client)
-        print(f"  → {series_ticker}")
+    series_ticker = args.series or HARDCODED_COLLECTION_TICKER
+    print(f"Game: NBA Finals G1 ({series_ticker})")
 
     if args.refresh:
         cache.refresh(series_ticker)
@@ -88,27 +114,27 @@ def main():
     market_tickers, combo_tickers = discover_all(client, series_ticker, cache)
     print(f"  → {len(combo_tickers)} combos ready")
 
-    print("Fetching orderbooks...")
+    print("Fetching market prices for probability model...")
+    market_prices = get_market_prices_from_api(client, market_tickers)
+    scenario_probs = build_scenario_probs(market_prices)
+
+    print("Fetching orderbooks (live prices for combo markets)...")
     fill_prices = {}
+    live_count  = 0
     for cid, combo_ticker in combo_tickers.items():
         no_bids = fetch_and_cache_orderbook(client, cache, series_ticker, combo_ticker)
-        fill = compute_vwap_yes_fill(no_bids, budget_d / 12)
-        if fill is None:
-            print(f"  WARNING: No liquidity for {cid} ({combo_ticker}) — using $0.10 fallback")
-            fill = Decimal("0.10")
-        fill_prices[cid] = fill
+        fill    = compute_vwap_yes_fill(no_bids, budget_d / 12)
+        if fill is not None and fill > Decimal("0"):
+            fill_prices[cid] = fill
+            live_count += 1
+        else:
+            fill_prices[cid] = None  # will be filled with estimates below
 
-    print("Fetching market prices for probability model...")
-    try:
-        market_prices  = get_market_prices_from_api(client, market_tickers)
-        scenario_probs = build_scenario_probs(market_prices)
-    except Exception as e:
-        print(f"  WARNING: Could not fetch market prices ({e}) — using uniform probabilities")
-        from combos_nba import SCENARIOS
-        scenario_probs = {
-            f"{s['winner']}_{s['total']}_{s['margin_range']}": Decimal("1") / Decimal("12")
-            for s in SCENARIOS
-        }
+    if live_count < len(combo_tickers):
+        print(f"  {live_count}/{len(combo_tickers)} combos have live quotes. Estimating the rest from leg prices.")
+        fill_prices = _estimate_missing_fills(fill_prices, market_prices)
+    else:
+        print(f"  All {live_count} combos have live quotes.")
 
     print("Running optimizer...")
     result = optimize(
