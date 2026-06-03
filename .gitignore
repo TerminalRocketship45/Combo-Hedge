@@ -1,0 +1,11 @@
+node_modules/
+kalshi_optimizer/
+docs/
+*.pem
+.env
+*.pyc
+__pycache__/
+.pytest_cache/
+*.js
+*.jsx
+*.tsx
