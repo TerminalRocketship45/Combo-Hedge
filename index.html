@@ -224,14 +224,6 @@ input[type=number]:focus{border-color:var(--green)}
     </div>
     <div id="marginProbInputs"></div>
     <div class="prob-note">Probabilities are only used to calculate Expected Value for display. Bet allocations are not affected.</div>
-    <div style="margin-top:12px;padding-top:10px;border-top:1px solid var(--border)">
-      <div style="font-size:.56rem;color:var(--muted);margin-bottom:6px">LOAD FROM KALSHI API — run <code style="color:var(--green)">python fetch_probs.py</code> then paste the JSON output here</div>
-      <div style="display:flex;gap:8px;align-items:flex-start">
-        <textarea id="probJson" rows="2" style="flex:1;background:var(--bg);border:1px solid var(--border);color:var(--text);font-family:var(--font);font-size:10px;padding:6px;resize:none" placeholder='{"p_spurs_win":0.63,"p_knicks_win":0.37,...}'></textarea>
-        <button class="btn btn-outline" onclick="loadProbJson()" style="white-space:nowrap;font-size:.6rem;padding:.4rem .8rem">LOAD</button>
-      </div>
-      <div id="probLoadStatus" style="font-size:.56rem;margin-top:4px"></div>
-    </div>
   </div>
 
   <div class="row" style="margin-top:14px">
@@ -969,32 +961,6 @@ function render(bets, results, stats, budget, minProfitTarget) {
   window.scrollTo({ top: document.getElementById('results').offsetTop - 20, behavior: 'smooth' });
 }
 
-function loadProbJson() {
-  const raw = document.getElementById('probJson').value.trim();
-  const statusEl = document.getElementById('probLoadStatus');
-  let data;
-  try { data = JSON.parse(raw); } catch(e) {
-    statusEl.innerHTML = '<span style="color:var(--red)">Invalid JSON</span>';
-    return;
-  }
-  if (data.p_spurs_win  !== undefined) document.getElementById('pSpursWin').value  = data.p_spurs_win;
-  if (data.p_knicks_win !== undefined) document.getElementById('pKnicksWin').value = data.p_knicks_win;
-  if (data.p_over       !== undefined) document.getElementById('pOver').value       = data.p_over;
-  if (data.p_under      !== undefined) document.getElementById('pUnder').value      = data.p_under;
-  if (data.cum_spurs) {
-    for (const br of BRACKETS) {
-      const el = document.getElementById(`cum_spurs_${br.key}`);
-      if (el && data.cum_spurs[br.threshold] !== undefined) el.value = data.cum_spurs[br.threshold];
-    }
-  }
-  if (data.cum_knicks) {
-    for (const br of BRACKETS) {
-      const el = document.getElementById(`cum_knicks_${br.key}`);
-      if (el && data.cum_knicks[br.threshold] !== undefined) el.value = data.cum_knicks[br.threshold];
-    }
-  }
-  statusEl.innerHTML = '<span style="color:var(--green)">Loaded ✓</span>';
-}
 
 function toggleProb() {
   const s = document.getElementById('probSection');

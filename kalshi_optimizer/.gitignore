@@ -1,6 +1,0 @@
-.env
-*.pem
-__pycache__/
-*.pyc
-.pytest_cache/
-output/
