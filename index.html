@@ -285,6 +285,20 @@ input[type=number]:focus{border-color:var(--green)}
   </div>
 </div>
 
+<!-- Guarantee Frontier -->
+<div id="guaranteeFrontierSection" style="display:none">
+  <div class="section" style="border-left-color:var(--blue)">
+    <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:4px">
+      <div class="section-title" style="margin-bottom:0;color:var(--blue)">Guarantee Frontier — Max Achievable Min Profit</div>
+      <div id="frontierMaxLabel" style="font-size:.72rem;font-weight:800;color:var(--blue)"></div>
+    </div>
+    <div style="font-size:.54rem;color:var(--dim);margin-bottom:14px;line-height:1.7">
+      Auto-computed on every Optimize run using fast iterations. The curve shows the optimizer's actual worst-case profit at each min-profit target. Where the curve leaves the diagonal (target&nbsp;=&nbsp;actual) is the <strong style="color:var(--text)">maximum guarantee</strong> your budget and multipliers can support.
+    </div>
+    <div id="guaranteeFrontierChart"></div>
+  </div>
+</div>
+
 <script>
 // ── State ─────────────────────────────────────────────────────────────────────
 let BRACKETS = [];   // [{key, label, threshold}]  sorted ascending
@@ -326,6 +340,12 @@ function kalshiCost(stakeUSD, centsPrice) {
 
 function actualMult(centsPrice) {
   return centsPrice > 0 ? (100 / centsPrice) : 0;
+}
+
+function ceilToDime(x) {
+  // Kalshi combo entry fields accept $0.10 increments — round up to nearest dime.
+  if (x < 0.005) return 0;
+  return Math.ceil(Math.round(x * 1000) / 100) / 10;
 }
 
 function computePrices() {
@@ -636,8 +656,8 @@ function flatToBets(flat) {
   return b;
 }
 
-function optimizeBets(budget, minProfitTarget) {
-  const itersRaw = parseInt(document.getElementById('iterations').value, 10);
+function optimizeBets(budget, minProfitTarget, itersOverride) {
+  const itersRaw = itersOverride != null ? itersOverride : parseInt(document.getElementById('iterations').value, 10);
   const ITERS = Number.isFinite(itersRaw) && itersRaw >= 100 ? itersRaw : 100000;
   const n = BRACKETS.length * COLS.length;
   let flat = new Array(n).fill(budget / n);
@@ -748,8 +768,8 @@ function runOptimizer() {
     } else {
       document.getElementById('chartSection').style.display = 'block';
     }
-    btn.disabled = false;
-    btn.textContent = 'OPTIMIZE';
+    // Frontier sweep re-enables the button when done
+    runGuaranteeSweep(budget, btn);
   }, 30);
 }
 
@@ -817,25 +837,29 @@ function render(bets, results, stats, budget, minProfitTarget) {
 
   // Allocation table — compute actual deployed totals for display
   let totalDeployed = 0;
+  let totalEnterAmt = 0;
   const betGrid = {};
   for (const br of BRACKETS) {
     betGrid[br.key] = {};
     for (const col of COLS) {
-      const stake    = (bets[br.key] || {})[col.key] || 0;
-      const cp       = (PRICES[br.key] || {})[col.key] || 100;
+      const stake     = (bets[br.key] || {})[col.key] || 0;
+      const cp        = (PRICES[br.key] || {})[col.key] || 100;
       const contracts = kalshiContracts(stake, cp);
-      const cost     = contracts * cp / 100;
-      betGrid[br.key][col.key] = { stake, cp, contracts, cost };
+      const cost      = contracts * cp / 100;
+      const enterAmt  = ceilToDime(cost); // round up to nearest $0.10 — Kalshi's input precision
+      const returned  = parseFloat((enterAmt - cost).toFixed(2));
+      betGrid[br.key][col.key] = { stake, cp, contracts, cost, enterAmt, returned };
       totalDeployed += cost;
+      totalEnterAmt += enterAmt;
     }
   }
   const remainder = Math.max(0, budget - totalDeployed);
 
   html += `<div class="section-title" style="margin-bottom:4px">BET ALLOCATION — enter these amounts in Kalshi</div>`;
   html += `<div style="font-size:.54rem;color:var(--dim);margin-bottom:10px;line-height:1.6">
-    Amounts shown are what Kalshi will actually charge after integer contract rounding.
-    <strong style="color:var(--text)">Deployed: $${totalDeployed.toFixed(2)}</strong>
-    ${remainder > 0.005 ? `· <span style="color:var(--gold)">Remainder: $${remainder.toFixed(2)} returned unspent</span>` : `· <span style="color:var(--green)">Budget fully deployed</span>`}
+    Amounts are rounded up to the nearest <strong style="color:var(--text)">$0.10</strong> (Kalshi's input precision). Kalshi floors to whole contracts and refunds any unspent cents.
+    Total to enter: <strong style="color:var(--text)">$${totalEnterAmt.toFixed(1)}</strong> · Kalshi actually charges: <strong style="color:var(--text)">$${totalDeployed.toFixed(2)}</strong>
+    ${remainder > 0.005 ? `· <span style="color:var(--gold)">$${remainder.toFixed(2)} of budget unused</span>` : `· <span style="color:var(--green)">Budget fully deployed</span>`}
   </div>`;
   html += '<div class="alloc-wrap"><table class="alloc-table"><thead><tr><th class="left">MARGIN</th>';
   for (const col of COLS) html += `<th>${col.label}</th>`;
@@ -843,17 +867,16 @@ function render(bets, results, stats, budget, minProfitTarget) {
   for (const br of BRACKETS) {
     html += `<tr><td class="margin-col">${br.label}</td>`;
     for (const col of COLS) {
-      const { stake, cp, contracts, cost } = betGrid[br.key][col.key];
+      const { stake, cp, contracts, cost, enterAmt, returned } = betGrid[br.key][col.key];
       const am = (100 / cp).toFixed(2);
       const priceStr = `$0.${cp.toString().padStart(2,'0')}`;
-      const returned = stake - cost;
       if (cost < 0.005) {
         html += `<td style="color:var(--dim);text-align:center;font-size:.6rem">—</td>`;
       } else {
         html += `<td title="Price: ${priceStr} · ${contracts} contracts · optimizer stake $${stake.toFixed(2)}">
-          <div class="bet-amount">$${cost.toFixed(2)}</div>
+          <div class="bet-amount">$${enterAmt.toFixed(1)}</div>
           <div class="bet-mult">${am}x · ${contracts} cts <span style="color:var(--dim)">→ $${contracts.toFixed(0)}</span></div>
-          ${returned > 0.005 ? `<div style="font-size:.44rem;color:var(--dim)">↩ $${returned.toFixed(2)} returned</div>` : ''}
+          ${returned > 0.005 ? `<div style="font-size:.44rem;color:var(--dim)">↩ $${returned.toFixed(2)} refunded by Kalshi</div>` : ''}
         </td>`;
       }
     }
@@ -1286,6 +1309,158 @@ function computeAndPlot(xVal) {
 
 function clearAllCharts() {
   Object.values(chartInstances).forEach(c => c?.clear());
+}
+
+// ── Guarantee Frontier ────────────────────────────────────────────────────────
+function runGuaranteeSweep(budget, btn) {
+  const section   = document.getElementById('guaranteeFrontierSection');
+  const container = document.getElementById('guaranteeFrontierChart');
+  const maxLabel  = document.getElementById('frontierMaxLabel');
+  section.style.display = 'block';
+  maxLabel.textContent  = '';
+  container.innerHTML   = '<div style="text-align:center;color:var(--muted);padding:34px 0;font-size:.58rem;letter-spacing:.12em">COMPUTING FRONTIER…</div>';
+  if (btn) { btn.disabled = true; btn.textContent = 'COMPUTING…'; }
+
+  setTimeout(() => {
+    const SWEEP_ITERS = 15000;
+    const N  = 22;
+    const lo = -budget * 0.25;
+    const hi =  budget * 0.55;
+    const points = [];
+
+    for (let i = 0; i <= N; i++) {
+      const target = parseFloat((lo + (hi - lo) * i / N).toFixed(2));
+      const bets   = optimizeBets(budget, target, SWEEP_ITERS);
+      const results = SCENARIOS.map(s => {
+        const r = calcScenario(bets, s);
+        return { ...s, ...r, isBeyondGuarantee: !s.isBlowout && s.lo >= BLOWOUT_AT };
+      });
+      const hedge = results.filter(r => !r.isBlowout && !r.isUnhedgeable && !r.isBeyondGuarantee);
+      const hp = hedge.map(r => r.profit);
+      const worstCase = hp.length ? Math.min(...hp) : -budget;
+      points.push({ target, worstCase });
+    }
+
+    // Max guarantee = highest target where worstCase still meets it (within 5¢ tolerance)
+    let maxGuarantee = lo;
+    for (const p of [...points].reverse()) {
+      if (p.worstCase >= p.target - 0.05) { maxGuarantee = p.target; break; }
+    }
+
+    maxLabel.textContent = `MAX GUARANTEE: $${maxGuarantee.toFixed(2)}`;
+    renderFrontierChart(container, points, maxGuarantee, budget);
+    if (btn) { btn.disabled = false; btn.textContent = 'OPTIMIZE'; }
+  }, 50);
+}
+
+function renderFrontierChart(container, points, maxGuarantee, budget) {
+  container.innerHTML = '';
+  const totalW = container.clientWidth || 700;
+  const m = { top: 36, right: 24, bottom: 52, left: 62 };
+  const W = totalW - m.left - m.right;
+  const H = 210 - m.top - m.bottom;
+
+  const xs = points.map(p => p.target);
+  const ys = points.map(p => p.worstCase);
+  const xDom = [Math.min(...xs), Math.max(...xs)];
+  const yPad = Math.max((Math.max(...ys) - Math.min(...ys)) * 0.18, 0.4);
+  const yDom = [Math.min(...ys) - yPad, Math.max(...ys) + yPad];
+
+  const xSc = d3.scaleLinear().domain(xDom).range([0, W]);
+  const ySc = d3.scaleLinear().domain(yDom).range([H, 0]);
+
+  const svg = d3.select(container).append('svg')
+    .attr('viewBox', `0 0 ${totalW} ${H + m.top + m.bottom}`)
+    .style('width', '100%').style('height', 'auto').style('display', 'block');
+
+  const g = svg.append('g').attr('transform', `translate(${m.left},${m.top})`);
+  g.append('rect').attr('width', W).attr('height', H).attr('fill', '#06060b');
+
+  // Grid
+  g.selectAll('.gy').data(ySc.ticks(5)).enter().append('line')
+    .attr('x1', 0).attr('x2', W).attr('y1', d => ySc(d)).attr('y2', d => ySc(d))
+    .attr('stroke', '#1a1a26').attr('stroke-dasharray', '3,5');
+  g.selectAll('.gx').data(xSc.ticks(6)).enter().append('line')
+    .attr('x1', d => xSc(d)).attr('x2', d => xSc(d)).attr('y1', 0).attr('y2', H)
+    .attr('stroke', '#1a1a26').attr('stroke-dasharray', '3,5');
+
+  // y=0 baseline
+  if (yDom[0] < 0 && yDom[1] > 0)
+    g.append('line').attr('x1', 0).attr('x2', W).attr('y1', ySc(0)).attr('y2', ySc(0))
+      .attr('stroke', '#2a2a3e').attr('stroke-width', 1);
+
+  // y=x diagonal: target = actual (reference)
+  const dLo = Math.max(xDom[0], yDom[0]);
+  const dHi = Math.min(xDom[1], yDom[1]);
+  if (dLo < dHi) {
+    g.append('line')
+      .attr('x1', xSc(dLo)).attr('y1', ySc(dLo)).attr('x2', xSc(dHi)).attr('y2', ySc(dHi))
+      .attr('stroke', '#3a3a52').attr('stroke-width', 1).attr('stroke-dasharray', '4,4');
+    g.append('text').attr('x', xSc(dHi) - 5).attr('y', ySc(dHi) - 6)
+      .attr('text-anchor', 'end')
+      .style('fill', '#3a3a52').style('font-size', '8px').style('font-family', 'JetBrains Mono,monospace')
+      .text('target = actual');
+  }
+
+  // Frontier curve
+  const lineGen = d3.line().x(p => xSc(p.target)).y(p => ySc(p.worstCase)).curve(d3.curveMonotoneX);
+  g.append('path').datum(points).attr('fill', 'none')
+    .attr('stroke', '#4a78cc').attr('stroke-width', 2.2).attr('stroke-linecap', 'round')
+    .attr('d', lineGen);
+
+  // Dots — green if feasible, dim if not
+  g.selectAll('.fdot').data(points).enter().append('circle').attr('class', 'fdot')
+    .attr('r', 3.5).attr('fill', d => d.worstCase >= d.target - 0.05 ? '#4a78cc' : '#3a3a4e')
+    .attr('stroke', '#06060b').attr('stroke-width', 1.5)
+    .attr('cx', d => xSc(d.target)).attr('cy', d => ySc(d.worstCase));
+
+  // Max guarantee vertical line
+  if (maxGuarantee >= xDom[0] && maxGuarantee <= xDom[1]) {
+    g.append('line')
+      .attr('x1', xSc(maxGuarantee)).attr('x2', xSc(maxGuarantee))
+      .attr('y1', 0).attr('y2', H)
+      .attr('stroke', '#4d9468').attr('stroke-width', 1.8).attr('stroke-dasharray', '5,3');
+
+    const lx = xSc(maxGuarantee);
+    const anchor = lx > W * 0.75 ? 'end' : 'start';
+    const offset = anchor === 'end' ? -7 : 7;
+    g.append('text').attr('x', lx + offset).attr('y', 16)
+      .attr('text-anchor', anchor)
+      .style('fill', '#4d9468').style('font-size', '9px').style('font-weight', '700')
+      .style('font-family', 'JetBrains Mono,monospace')
+      .text(`MAX: $${maxGuarantee.toFixed(2)}`);
+  }
+
+  // Axes
+  const xAx = g.append('g').attr('transform', `translate(0,${H})`)
+    .call(d3.axisBottom(xSc).ticks(6).tickFormat(d => `$${d.toFixed(1)}`));
+  xAx.select('.domain').attr('stroke', '#252535');
+  xAx.selectAll('text').style('fill', '#4a4a60').style('font-size', '9px').style('font-family', 'JetBrains Mono,monospace');
+
+  const yAx = g.append('g')
+    .call(d3.axisLeft(ySc).ticks(5).tickFormat(d => `$${d.toFixed(1)}`));
+  yAx.select('.domain').attr('stroke', '#252535');
+  yAx.selectAll('text').style('fill', '#4a4a60').style('font-size', '9px').style('font-family', 'JetBrains Mono,monospace');
+
+  // Labels
+  g.append('text').attr('x', W / 2).attr('y', H + 42).attr('text-anchor', 'middle')
+    .style('fill', '#333348').style('font-size', '8px').style('letter-spacing', '.14em')
+    .style('font-family', 'JetBrains Mono,monospace').text('MIN PROFIT TARGET ($) →');
+
+  g.append('text').attr('transform', 'rotate(-90)').attr('x', -H / 2).attr('y', -48)
+    .attr('text-anchor', 'middle').style('fill', '#333348').style('font-size', '8px')
+    .style('letter-spacing', '.14em').style('font-family', 'JetBrains Mono,monospace')
+    .text('ACTUAL WORST CASE ($)');
+
+  g.append('text').attr('x', W / 2).attr('y', -18).attr('text-anchor', 'middle')
+    .style('fill', '#4a78cc').style('font-size', '9px').style('font-weight', '700')
+    .style('letter-spacing', '.22em').style('font-family', 'JetBrains Mono,monospace')
+    .text('GUARANTEE FRONTIER');
+
+  // Footnote
+  g.append('text').attr('x', W).attr('y', H + 50).attr('text-anchor', 'end')
+    .style('fill', '#252535').style('font-size', '7.5px').style('font-family', 'JetBrains Mono,monospace')
+    .text('fast sweep · 15k iters/pt');
 }
 </script>
 </body>
