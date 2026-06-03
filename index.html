@@ -142,7 +142,7 @@ input[type=number]:focus{border-color:var(--green)}
 <div class="header">
   <div class="header-tag">KALSHI COMBO</div>
   <h1>PROFIT MAXIMIZER</h1>
-  <div class="header-sub">SPURS vs KNICKS &bull; CSV-DRIVEN OPTIMIZER</div>
+  <div class="header-sub" id="headerSub">COMBO BET &bull; CSV-DRIVEN OPTIMIZER</div>
 </div>
 
 <!-- Step 1: Data Entry -->
@@ -211,15 +211,14 @@ input[type=number]:focus{border-color:var(--green)}
   </div>
   <div class="prob-section" id="probSection">
     <div class="prob-grid">
-      <div>
+      <div id="winnerProbInputs">
         <div style="font-size:.56rem;color:var(--muted);margin-bottom:6px">WINNER PROB</div>
-        <div class="prob-input-row"><span>Spurs win</span><span><input type="number" id="pSpursWin" value="0.63" min="0" max="1" step="0.01"> %</span></div>
-        <div class="prob-input-row"><span>Knicks win</span><span><input type="number" id="pKnicksWin" value="0.37" min="0" max="1" step="0.01"> %</span></div>
+        <div style="font-size:.54rem;color:var(--dim)">Parse your CSV first</div>
       </div>
       <div>
         <div style="font-size:.56rem;color:var(--muted);margin-bottom:6px">TOTAL PROB</div>
-        <div class="prob-input-row"><span>Over 217.5</span><span><input type="number" id="pOver" value="0.54" min="0" max="1" step="0.01"> %</span></div>
-        <div class="prob-input-row"><span>Under 217.5</span><span><input type="number" id="pUnder" value="0.46" min="0" max="1" step="0.01"> %</span></div>
+        <div class="prob-input-row"><span>Over</span><span><input type="number" id="pOver" value="0.54" min="0" max="1" step="0.01"> %</span></div>
+        <div class="prob-input-row"><span>Under</span><span><input type="number" id="pUnder" value="0.46" min="0" max="1" step="0.01"> %</span></div>
       </div>
     </div>
     <div id="marginProbInputs"></div>
@@ -354,36 +353,36 @@ function parseCSV() {
 
   const rows = raw.split('\n').map(r => r.split(',').map(c => c.trim()));
 
-  // Find header row: first row where cells[1..] look like team+total names
+  // Find header row: first row that has at least 2 data columns containing "over" or "under"
   let headerRow = -1;
   for (let i = 0; i < rows.length; i++) {
     const cells = rows[i];
-    if (cells.length >= 3 && /spurs|knicks/i.test(cells.slice(1).join(' '))) {
+    const joined = cells.slice(1).join(' ').toLowerCase();
+    if (cells.length >= 3 && /\bover\b/i.test(joined) && /\bunder\b/i.test(joined)) {
       headerRow = i;
       break;
     }
   }
   if (headerRow === -1) {
-    statusEl.innerHTML = '<div class="error-box">Could not find header row. Expected row with "Spurs" and "Knicks" column names.</div>';
+    statusEl.innerHTML = '<div class="error-box">Could not find header row. Expected columns like "Miami + over", "Washington + under".</div>';
     return;
   }
 
   // Parse column headers -> cols
+  // Team name = everything before the "over"/"under" keyword, stripped of punctuation
   const rawCols = rows[headerRow].slice(1).filter(c => c);
   const cols = [];
   for (const raw of rawCols) {
     const norm = raw.toLowerCase().replace(/\s+/g, ' ').trim();
-    let team = null, total = null;
-    if (/spurs/i.test(norm)) team = 'spurs';
-    else if (/knicks/i.test(norm)) team = 'knicks';
-    if (/\bover\b/i.test(norm)) total = 'over';
-    else if (/\bunder\b/i.test(norm)) total = 'under';
-    if (team && total) {
-      cols.push({ key: `${team}_${total}`, label: raw, team, total });
-    }
+    const totalMatch = norm.match(/\b(over|under)\b/);
+    if (!totalMatch) continue;
+    const total = totalMatch[1];
+    const team = norm.substring(0, totalMatch.index).replace(/[+&\s]+$/, '').trim();
+    if (!team) continue;
+    cols.push({ key: `${team}_${total}`, label: raw.trim(), team, total });
   }
   if (cols.length === 0) {
-    statusEl.innerHTML = '<div class="error-box">No valid combo columns found. Expected columns like "Spurs + over", "Knicks + under".</div>';
+    statusEl.innerHTML = '<div class="error-box">No valid combo columns found. Expected columns like "Miami + over", "Washington + under".</div>';
     return;
   }
 
@@ -445,6 +444,10 @@ function parseCSV() {
   previewEl.innerHTML = renderParsedPreview();
   document.getElementById('settingsSection').style.display = 'block';
   document.getElementById('placeholder').style.display = 'none';
+  // Update header subtitle with actual team names
+  const teams = [...new Set(cols.map(c => c.team))];
+  const teamLabel = teams.map(t => t.charAt(0).toUpperCase() + t.slice(1)).join(' vs ');
+  document.getElementById('headerSub').textContent = `${teamLabel} • CSV-DRIVEN OPTIMIZER`;
 }
 
 function renderParsedPreview() {
@@ -479,8 +482,9 @@ function buildScenarios() {
     ranges.push({ lo, hi: t });
     lo = t;
   }
+  const teams = [...new Set(COLS.map(c => c.team))];
   const scenarios = [];
-  for (const team of ['spurs', 'knicks'])
+  for (const team of teams)
     for (const total of ['over', 'under'])
       for (const { lo, hi } of ranges) {
         // A scenario is unhedgeable if every paying bet has actual_mult ≤ 1
@@ -499,7 +503,7 @@ function buildScenarios() {
 
   // Blowout scenarios: margin exceeds every threshold — nothing pays, full stake lost
   const lastThreshold = thresholds[thresholds.length - 1];
-  for (const team of ['spurs', 'knicks'])
+  for (const team of teams)
     for (const total of ['over', 'under'])
       scenarios.push({ team, total, lo: lastThreshold, hi: Infinity,
                        rangeKey: `${team}_${total}_blowout`, isBlowout: true, isUnhedgeable: true });
@@ -542,27 +546,32 @@ function calcScenario(bets, scenario) {
 
 // ── Probability Model ─────────────────────────────────────────────────────────
 function getProbs() {
-  const pSpurs  = parseFloat(document.getElementById('pSpursWin').value)  || 0.63;
-  const pKnicks = parseFloat(document.getElementById('pKnicksWin').value) || 0.37;
-  const pOver   = parseFloat(document.getElementById('pOver').value)      || 0.54;
-  const pUnder  = parseFloat(document.getElementById('pUnder').value)     || 0.46;
+  const teams = [...new Set(COLS.map(c => c.team))];
+  const pOver  = parseFloat(document.getElementById('pOver').value)  || 0.54;
+  const pUnder = parseFloat(document.getElementById('pUnder').value) || 0.46;
+  const totalProb = { over: pOver, under: pUnder };
 
-  const winnerProb = { spurs: pSpurs, knicks: pKnicks };
-  const totalProb  = { over: pOver, under: pUnder };
+  // Winner probs: read from dynamically generated inputs
+  const winnerProb = {};
+  const n = teams.length;
+  teams.forEach((team, i) => {
+    const el = document.getElementById(`pWin_${team}`);
+    winnerProb[team] = el ? (parseFloat(el.value) || 1 / n) : 1 / n;
+  });
 
-  // Read cumulative margin probs for each bracket
-  const cumProbs = { spurs: {}, knicks: {} };
-  for (const team of ['spurs', 'knicks']) {
+  // Cumulative margin probs
+  const cumProbs = {};
+  for (const team of teams) {
+    cumProbs[team] = {};
     for (const br of BRACKETS) {
       const el = document.getElementById(`cum_${team}_${br.key}`);
       cumProbs[team][br.threshold] = el ? parseFloat(el.value) || 0 : 0.5;
     }
   }
 
-  // Compute marginal scenario probs
   const scenarioProbs = {};
   const thresholds = BRACKETS.map(b => b.threshold);
-  for (const team of ['spurs', 'knicks']) {
+  for (const team of teams) {
     let prevCum = 0;
     for (let i = 0; i < thresholds.length; i++) {
       const t = thresholds[i];
@@ -575,8 +584,6 @@ function getProbs() {
         scenarioProbs[key] = winnerProb[team] * totalProb[total] * marginal;
       }
     }
-    // Blowout probability = P(winner wins) × P(wins by > last threshold)
-    // = winnerProb × (1 - lastCumulative)
     const lastCum = cumProbs[team][thresholds[thresholds.length - 1]] || 0;
     const blowoutMarginal = Math.max(0, 1 - lastCum);
     for (const total of ['over', 'under']) {
@@ -587,20 +594,30 @@ function getProbs() {
 }
 
 function buildMarginProbInputs() {
-  // Default cumulative "under X" probs from JSX
-  const defaults = {
-    spurs:  { 4.5: 0.47, 10.5: 0.67, 20.5: 0.79 },
-    knicks: { 4.5: 0.72, 10.5: 0.86, 20.5: 0.95 },
-  };
+  const teams = [...new Set(COLS.map(c => c.team))];
+  const n = teams.length;
+
+  // Rebuild winner prob inputs dynamically
+  let winnerHtml = '<div style="font-size:.56rem;color:var(--muted);margin-bottom:6px">WINNER PROB</div>';
+  teams.forEach((team, i) => {
+    const defVal = (1 / n).toFixed(2);
+    winnerHtml += `<div class="prob-input-row">
+      <span>${team.charAt(0).toUpperCase() + team.slice(1)} win</span>
+      <span><input type="number" id="pWin_${team}" value="${defVal}" min="0" max="1" step="0.01"> %</span>
+    </div>`;
+  });
+  document.getElementById('winnerProbInputs').innerHTML = winnerHtml;
+
+  // Build cumulative margin prob inputs
   let html = '<div style="font-size:.56rem;color:var(--muted);margin-bottom:8px">CUMULATIVE MARGIN PROB (P that winner wins by UNDER threshold)</div>';
-  html += '<div style="display:grid;grid-template-columns:1fr 1fr;gap:8px">';
-  for (const team of ['spurs', 'knicks']) {
+  const cols = Math.min(teams.length, 4);
+  html += `<div style="display:grid;grid-template-columns:repeat(${cols},1fr);gap:8px">`;
+  for (const team of teams) {
     html += `<div><div style="font-size:.56rem;color:var(--green);margin-bottom:5px">${team.toUpperCase()}</div>`;
     for (const br of BRACKETS) {
-      const defVal = (defaults[team] || {})[br.threshold] ?? 0.7;
       html += `<div class="prob-input-row">
         <span>${br.label}</span>
-        <span><input type="number" id="cum_${team}_${br.key}" value="${defVal}" min="0" max="1" step="0.01"></span>
+        <span><input type="number" id="cum_${team}_${br.key}" value="0.70" min="0" max="1" step="0.01"></span>
       </div>`;
     }
     html += '</div>';
