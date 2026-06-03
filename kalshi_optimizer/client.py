@@ -47,19 +47,21 @@ class KalshiClient:
     )
     def get(self, path: str, params: dict = None) -> dict:
         _rate_limit()
-        qs = ""
+        # Build query string manually so the signed path matches the sent URL exactly.
+        # Using requests' params= would URL-encode differently from our manual build.
         if params:
-            qs = "?" + "&".join(f"{k}={v}" for k, v in params.items())
-        full_path = path + qs
+            from urllib.parse import urlencode
+            qs = "?" + urlencode(params)
+            full_path = path + qs
+        else:
+            qs = ""
+            full_path = path
         resp = requests.get(
-            self.base + path,
-            params=params,
+            self.base + full_path,
             headers=self._headers("GET", full_path),
         )
         if resp.status_code == 429:
             raise requests.HTTPError("Rate limited", response=resp)
-        if _should_retry(requests.HTTPError(response=resp)) and not resp.ok:
-            resp.raise_for_status()
         resp.raise_for_status()
         return resp.json()
 
