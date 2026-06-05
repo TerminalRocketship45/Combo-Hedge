@@ -348,6 +348,7 @@ function parseCSV() {
   BRACKETS = brackets;
   COLS = cols;
   MULTIPLIERS = multipliers;
+  BLOWOUT_MULTS = {};
   computePrices();
   SCENARIOS = buildScenarios();
 
@@ -430,6 +431,10 @@ function readBlowoutMults() {
       if (warnEl) warnEl.textContent = 'must be > 1x';
     }
   }
+}
+
+function updateBlowoutHints() {
+  // populated in settings setup
 }
 
 // ── Scenario Generation ───────────────────────────────────────────────────────
