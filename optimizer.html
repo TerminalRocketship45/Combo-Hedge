@@ -1138,8 +1138,12 @@ function computeBlowoutChartData(budget, minProfitTarget) {
       // Temporarily override this team's cap
       const savedCaps = BLOWOUT_CAPS;
       BLOWOUT_CAPS = { ...BLOWOUT_CAPS, [sweepTeam]: cap };
-      const bb = computeBlowoutBets(budget);
-      BLOWOUT_CAPS = savedCaps;
+      let bb;
+      try {
+        bb = computeBlowoutBets(budget);
+      } finally {
+        BLOWOUT_CAPS = savedCaps;
+      }
 
       const bt = Object.values(bb).reduce((a, b) => a + b, 0);
       const cb = Math.max(0, budget - bt);
