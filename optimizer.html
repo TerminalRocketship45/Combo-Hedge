@@ -654,7 +654,7 @@ function readBlowoutCaps() {
   BLOWOUT_CAPS = {};
   for (const team of teams) {
     const el = document.getElementById(`blowout_cap_${team}`);
-    if (el) BLOWOUT_CAPS[team] = parseFloat(el.value) ?? 0;
+    if (el) BLOWOUT_CAPS[team] = parseFloat(el.value) || 0;
   }
 }
 
