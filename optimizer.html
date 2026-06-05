@@ -805,8 +805,9 @@ function rangeLabel(lo, hi) {
   return `Win by ${loInt}–${Math.floor(hi)} pts`;
 }
 
-function render(bets, results, stats, budget, minProfitTarget, scenProbs) {
-  const totalBet = BRACKETS.flatMap(br => COLS.map(col => (bets[br.key] || {})[col.key] || 0)).reduce((a, b) => a + b, 0);
+function render(bets, results, stats, budget, minProfitTarget, scenProbs, blowoutBets, blowoutTotal) {
+  const comboDeployed = BRACKETS.flatMap(br => COLS.map(col => (bets[br.key] || {})[col.key] || 0)).reduce((a, b) => a + b, 0);
+  const totalBet = comboDeployed + (blowoutTotal || 0);
 
   const hedgeResults      = results.filter(r => !r.isBlowout && !r.isUnhedgeable);
   const unhedgeableResults = results.filter(r => !r.isBlowout && r.isUnhedgeable);
@@ -828,21 +829,27 @@ function render(bets, results, stats, budget, minProfitTarget, scenProbs) {
 
   // Guarantee vs minimize banner
   const worstHedged = hedgeProfits.length > 0 ? Math.min(...hedgeProfits) : -Infinity;
-  const floorMet = worstHedged >= minProfitTarget - 0.05;
+  const floorMet    = worstHedged >= minProfitTarget - 0.05;
   const lastThreshold = BRACKETS[BRACKETS.length - 1]?.threshold ?? '?';
+  const hasBlowoutHedge = (blowoutTotal || 0) > 0.001;
+
   if (floorMet && minProfitTarget >= -0.05) {
     const label = minProfitTarget <= 0.05
       ? 'BREAK-EVEN GUARANTEED'
       : `MIN $${minProfitTarget.toFixed(2)} PROFIT GUARANTEED`;
+    const blowoutNote = hasBlowoutHedge
+      ? ` <span style="color:var(--gold)">$${(blowoutTotal).toFixed(2)} reserved for blowout hedges (reduces combo profits by that amount).</span>`
+      : ` Blowout (win by ${lastThreshold}+ pts) is unhedgeable — you lose $${totalBet.toFixed(2)} deployed in that case.`;
     html += `<div style="background:#081a08;border:1px solid #1a5a1a;color:#80c080;padding:10px 14px;font-size:.62rem;margin-bottom:12px;line-height:1.7">
-      <strong style="color:var(--green);letter-spacing:.1em">${label}</strong> across all ${hedgeResults.length} hedged scenarios (margin 0–${lastThreshold} pts).
-      Blowout (win by ${lastThreshold}+ pts) is unhedgeable — you lose $${totalBet.toFixed(2)} deployed in that case.
+      <strong style="color:var(--green);letter-spacing:.1em">${label}</strong> across all ${hedgeResults.length} hedged scenarios (margin 0–${lastThreshold} pts).${blowoutNote}
     </div>`;
   } else {
+    const blowoutNote = hasBlowoutHedge
+      ? ` <span style="color:var(--gold)">$${(blowoutTotal).toFixed(2)} reserved for blowout hedges.</span>`
+      : ` Blowout (win by ${lastThreshold}+ pts) is always <span style="color:var(--red)">-$${totalBet.toFixed(2)}</span>.`;
     html += `<div style="background:var(--surface2);border:1px solid var(--border2);color:var(--muted);padding:10px 14px;font-size:.62rem;margin-bottom:12px;line-height:1.7">
       <strong style="color:var(--text);letter-spacing:.08em">FLOOR NOT MET</strong> — worst hedged scenario: ${fmt(worstHedged, true)} vs target ${fmt(minProfitTarget, true)}.
-      Try a lower Min Profit target, or increase your budget.
-      Blowout (win by ${lastThreshold}+ pts) is always <span style="color:var(--red)">-$${totalBet.toFixed(2)}</span>.
+      Try a lower Min Profit target, or increase your budget.${blowoutNote}
     </div>`;
   }
 
@@ -873,6 +880,39 @@ function render(bets, results, stats, budget, minProfitTarget, scenProbs) {
     html += '</tr>';
   }
   html += '</tbody></table></div>';
+
+  // Blowout hedge allocation (only shown when at least one hedge is active)
+  if (hasBlowoutHedge) {
+    const teams = [...new Set(COLS.map(c => c.team))];
+    html += `<div style="margin-top:6px;margin-bottom:16px">
+      <div class="section-title" style="font-size:.5rem;color:var(--red);margin-bottom:6px">BLOWOUT HEDGE BETS</div>
+      <table class="alloc-table" style="min-width:auto">
+        <thead><tr>
+          <th class="left">BET</th>
+          <th>STAKE</th>
+          <th>MULTIPLIER</th>
+          <th>PAYS IF BLOWOUT</th>
+          <th>LOSS CAP</th>
+        </tr></thead><tbody>`;
+    for (const team of teams) {
+      const b = (blowoutBets || {})[team] || 0;
+      if (b < 0.001) continue;
+      const M  = BLOWOUT_MULTS[team] || 0;
+      const cp = csvMultToPrice(M);
+      const payout = kalshiPayout(b, cp);
+      const cap = (BLOWOUT_CAPS[team] !== undefined) ? BLOWOUT_CAPS[team] : budget;
+      const label = team.charAt(0).toUpperCase() + team.slice(1);
+      const lastThresh = BRACKETS[BRACKETS.length - 1]?.threshold ?? '?';
+      html += `<tr>
+        <td class="margin-col" style="text-align:left">${label} wins by over ${lastThresh} pts</td>
+        <td><div class="bet-amount">$${b.toFixed(2)}</div></td>
+        <td><div class="bet-mult">${M}x</div></td>
+        <td style="color:var(--green);font-weight:700">+$${payout.toFixed(2)}</td>
+        <td style="color:var(--gold)">-$${cap.toFixed(2)} max</td>
+      </tr>`;
+    }
+    html += '</tbody></table></div>';
+  }
 
   // Hedged scenario cards
   html += `<div class="section-title" style="margin-bottom:10px">HEDGED SCENARIOS (margin 0–${lastThreshold} pts) — click to verify math</div>`;
@@ -914,9 +954,23 @@ function render(bets, results, stats, budget, minProfitTarget, scenProbs) {
         </div>
       </div>
       <div class="sc-detail">
-        ${r.isBlowout ? `<div style="background:#2a0808;padding:6px 8px;font-size:.6rem;color:#e09090;margin-bottom:8px;line-height:1.6">
-          No combo pays when the winning margin exceeds ${lastThreshold} pts. Every bet loses.
-        </div>` : ''}
+        ${r.isBlowout ? (() => {
+          if (!hasBlowoutHedge || !((blowoutBets || {})[r.team] > 0)) {
+            return `<div style="background:#2a0808;padding:6px 8px;font-size:.6rem;color:#e09090;margin-bottom:8px;line-height:1.6">
+              No combo pays when the winning margin exceeds ${lastThreshold} pts. Every bet loses.
+            </div>`;
+          }
+          const teamLabel  = r.team.charAt(0).toUpperCase() + r.team.slice(1);
+          const teams      = [...new Set(COLS.map(c => c.team))];
+          const otherTeam  = teams.find(t => t !== r.team) || '';
+          const otherLabel = otherTeam.charAt(0).toUpperCase() + otherTeam.slice(1);
+          const otherStake = (blowoutBets || {})[otherTeam] || 0;
+          return `<div style="background:#1a1400;padding:6px 8px;font-size:.6rem;color:#d0b060;margin-bottom:8px;line-height:1.6">
+            <strong>${teamLabel} blowout hedge wins:</strong> $${r.stake.toFixed(2)} &times; ${r.mult}x = +$${r.payout.toFixed(2)}<br>
+            ${otherStake > 0.001 ? `<span style="color:#e09090">${otherLabel} blowout hedge loses: -$${otherStake.toFixed(2)}</span><br>` : ''}
+            <span style="color:#e09090">All combo bets lose: -$${(budget - (blowoutTotal || 0)).toFixed(2)}</span>
+          </div>`;
+        })() : ''}
         ${isUnhLabel ? `<div style="background:#2a0808;padding:6px 8px;font-size:.6rem;color:#e09090;margin-bottom:8px;line-height:1.6">
           The paying bracket for this range has a multiplier &le; 1x. Even putting all budget on the winning bet returns only your stake (net 0) — all other bets still lose. Use a multiplier &gt; 1x in your CSV to hedge this range.
         </div>` : ''}
