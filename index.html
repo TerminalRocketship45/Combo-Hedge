@@ -380,7 +380,8 @@ function calcBlowoutScenario(blowoutBets, budget, winningTeam) {
   const stake = blowoutBets[winningTeam]   || 0;
   const cp    = csvMultToPrice(M);
   const payout = (stake > 0 && M > 1) ? kalshiPayout(stake, cp) : 0;
-  return { profit: payout - budget, payout, stake, mult: M, centsPrice: cp };
+  return { profit: payout - budget, payout, stake, mult: M, centsPrice: cp,
+           totalWinnings: payout, losingStaked: budget - stake, breakdown: [] };
 }
 
 // ── CSV Parsing ───────────────────────────────────────────────────────────────
@@ -870,6 +871,7 @@ function runOptimizer() {
   document.getElementById('results').innerHTML = `<div class="placeholder-msg">Running optimizer (${itersDisplay.toLocaleString()} iterations)...</div>`;
 
   setTimeout(() => {
+    try {
     const bets   = optimizeBets(comboBudget, effectiveFloor);
     const scenProbs = getProbs();
     const results = SCENARIOS.map(s => {
@@ -900,6 +902,10 @@ function runOptimizer() {
       initD3Charts(budget);
     } else {
       document.getElementById('chartSection').style.display = 'block';
+    }
+    } catch(e) {
+      console.error('Optimizer error:', e);
+      document.getElementById('results').innerHTML = `<div class="error-box">Optimizer error: ${e.message}</div>`;
     }
     btn.disabled = false;
     btn.textContent = 'OPTIMIZE';
