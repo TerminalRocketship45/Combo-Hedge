@@ -135,6 +135,9 @@ input[type=number]:focus{border-color:var(--green)}
 .clear-pts-btn:hover{border-color:var(--red);color:var(--red)}
 .d3-axis text{font-family:var(--font);font-size:9px;fill:var(--muted)}
 .d3-axis line,.d3-axis path{stroke:var(--border)}
+/* Blowout Hedge */
+.bh-section{background:#09060a !important;border-left-color:#663333 !important}
+.bh-title{color:#cc6060 !important}
 </style>
 </head>
 <body>
@@ -143,6 +146,44 @@ input[type=number]:focus{border-color:var(--green)}
   <div class="header-tag">KALSHI COMBO</div>
   <h1>PROFIT MAXIMIZER</h1>
   <div class="header-sub" id="headerSub">COMBO BET &bull; CSV-DRIVEN OPTIMIZER</div>
+</div>
+
+<!-- Blowout Hedge Configuration -->
+<div class="section bh-section">
+  <div class="section-title bh-title">Blowout Hedge — Setup</div>
+  <div style="font-size:.52rem;color:var(--dim);margin-bottom:14px;line-height:1.7">A blowout occurs when the winning margin exceeds the largest Under threshold in your sheet. Configure two hedge bets here — one per team — using a budget that is <strong style="color:var(--text)">completely separate</strong> from the combo optimizer. Leave multipliers blank to disable.</div>
+  <div class="row">
+    <div class="col">
+      <label class="red" id="bhLabel1">TEAM 1 BLOWOUT MULT</label>
+      <input type="number" id="bhMult1" placeholder="e.g. 5.0" min="0.01" step="0.1">
+      <div class="hint">Multiplier for Team 1 Over [max threshold]</div>
+    </div>
+    <div class="col">
+      <label class="red" id="bhLabel2">TEAM 2 BLOWOUT MULT</label>
+      <input type="number" id="bhMult2" placeholder="e.g. 4.5" min="0.01" step="0.1">
+      <div class="hint">Multiplier for Team 2 Over [max threshold]</div>
+    </div>
+    <div class="col">
+      <label class="red">HEDGE BUDGET ($)</label>
+      <input type="number" id="bhBudget" value="2" min="0" step="0.5">
+      <div class="hint">Total spend — separate from combo budget</div>
+    </div>
+    <div class="col">
+      <label>GRAPH MIN ($)</label>
+      <input type="number" id="bhGraphMin" value="0" min="0" step="0.5">
+      <div class="hint">Simulation range start</div>
+    </div>
+    <div class="col">
+      <label>GRAPH MAX ($)</label>
+      <input type="number" id="bhGraphMax" value="10" min="0" step="0.5">
+      <div class="hint">Simulation range end</div>
+    </div>
+    <div class="col">
+      <label>STEP ($)</label>
+      <input type="number" id="bhStep" value="0.5" min="0.05" step="0.05">
+      <div class="hint">Budget increment per step</div>
+    </div>
+  </div>
 </div>
 
 <!-- Step 1: Data Entry -->
@@ -247,29 +288,12 @@ input[type=number]:focus{border-color:var(--green)}
       <button class="btn" id="optimizeBtn" onclick="runOptimizer()">OPTIMIZE</button>
     </div>
   </div>
-  <div id="blowoutCapRow" class="row" style="margin-top:10px"></div>
-  <div id="blowoutClampWarn" style="display:none;font-size:.56rem;color:var(--red);margin-top:4px">
-    ⚠ Blowout hedge targets exceed budget — stakes scaled down proportionally.
-  </div>
 </div>
 
 <!-- Results -->
 <div id="results"></div>
 
 <div class="placeholder-msg" id="placeholder">Fill the multiplier table above and click PARSE › to begin.</div>
-
-<!-- Blowout Cap Sensitivity Chart -->
-<div id="blowoutChartSection" style="display:none;margin-top:16px">
-  <div class="section" style="border-left-color:var(--blue)">
-    <div class="section-title" style="color:var(--blue)">Blowout Cap vs Min Combo Profit</div>
-    <div style="font-size:.54rem;color:var(--dim);margin-bottom:12px;line-height:1.7">
-      How tightening each team's blowout loss cap reduces your minimum guaranteed non-blowout profit.
-      Blue = Team 1 cap sweep. Gold = Team 2 cap sweep.
-    </div>
-    <canvas id="chart-blowout" height="160" style="width:100%;display:block"></canvas>
-    <div style="font-size:.5rem;color:var(--dim);margin-top:8px;text-align:center">X-axis: max loss if blowout ($) →</div>
-  </div>
-</div>
 
 <!-- Sensitivity Analysis Charts -->
 <div id="chartSection" style="display:none">
@@ -302,6 +326,37 @@ input[type=number]:focus{border-color:var(--green)}
   </div>
 </div>
 
+<!-- Guarantee Frontier -->
+<div id="guaranteeFrontierSection" style="display:none">
+  <div class="section" style="border-left-color:var(--blue)">
+    <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:4px">
+      <div class="section-title" style="margin-bottom:0;color:var(--blue)">Guarantee Frontier — Max Achievable Min Profit</div>
+      <div id="frontierMaxLabel" style="font-size:.72rem;font-weight:800;color:var(--blue)"></div>
+    </div>
+    <div style="font-size:.54rem;color:var(--dim);margin-bottom:14px;line-height:1.7">
+      Auto-computed on every Optimize run using fast iterations. The curve shows the optimizer's actual worst-case profit at each min-profit target. Where the curve leaves the diagonal (target&nbsp;=&nbsp;actual) is the <strong style="color:var(--text)">maximum guarantee</strong> your budget and multipliers can support.
+    </div>
+    <div id="guaranteeFrontierChart"></div>
+  </div>
+</div>
+
+<!-- Blowout Hedge Results -->
+<div id="blowoutHedgeResults"></div>
+
+<!-- Blowout Hedge Graph -->
+<div id="blowoutHedgeGraphSection" style="display:none">
+  <div class="section bh-section">
+    <div class="section-title bh-title">Blowout Hedge — Budget Simulation</div>
+    <div style="font-size:.54rem;color:var(--dim);margin-bottom:14px;line-height:1.7">Net blowout outcome at each hedge budget level. Adjust the graph min / max / step in the configuration section above to control the simulation range. Budget is split 50/50 between the two team blowout bets.</div>
+    <div id="blowoutHedgeGraphContainer"></div>
+    <div style="font-size:.5rem;color:var(--dim);margin-top:8px;display:flex;gap:18px">
+      <span><span style="color:#cc4f4f">■</span> Team 1 blowout net outcome</span>
+      <span><span style="color:#4a78cc">■</span> Team 2 blowout net outcome</span>
+      <span><span style="color:#d4a830">┊</span> Current hedge budget</span>
+    </div>
+  </div>
+</div>
+
 <script>
 // ── State ─────────────────────────────────────────────────────────────────────
 let BRACKETS = [];   // [{key, label, threshold}]  sorted ascending
@@ -310,8 +365,6 @@ let MULTIPLIERS = {}; // {bracketKey: {colKey: float}}  — CSV (theoretical) mu
 let PRICES = {};     // {bracketKey: {colKey: int}}     — Kalshi price in whole cents ($0.01 snap)
 let SCENARIOS = [];  // [{team, total, lo, hi, rangeKey, isBlowout, isUnhedgeable}]
 let BLOWOUT_AT = Infinity; // guarantee boundary set at optimize-time
-let BLOWOUT_MULTS = {};  // { team_key: float }  raw multiplier entered by user
-let BLOWOUT_CAPS  = {};  // { team_key: float }  max loss if that team blows out
 
 // ── Kalshi Rounding ───────────────────────────────────────────────────────────
 // Kalshi prices are in $0.01 steps (nearest cent).
@@ -347,6 +400,12 @@ function actualMult(centsPrice) {
   return centsPrice > 0 ? (100 / centsPrice) : 0;
 }
 
+function ceilToDime(x) {
+  // Kalshi combo entry fields accept $0.10 increments — round up to nearest dime.
+  if (x < 0.005) return 0;
+  return Math.ceil(Math.round(x * 1000) / 100) / 10;
+}
+
 function computePrices() {
   PRICES = {};
   for (const br of BRACKETS) {
@@ -356,32 +415,6 @@ function computePrices() {
       PRICES[br.key][col.key] = csvMultToPrice(m);
     }
   }
-}
-
-function computeBlowoutBets(budget) {
-  const bets = {};
-  const teams = [...new Set(COLS.map(c => c.team))];
-  for (const team of teams) {
-    const M   = BLOWOUT_MULTS[team] || 0;
-    const cap = (BLOWOUT_CAPS[team] !== undefined) ? BLOWOUT_CAPS[team] : budget;
-    if (M <= 1 || cap >= budget) { bets[team] = 0; continue; }
-    bets[team] = (budget - cap) / M;
-  }
-  const total = Object.values(bets).reduce((a, b) => a + b, 0);
-  if (total > budget && total > 0) {
-    const scale = budget / total;
-    for (const t of Object.keys(bets)) bets[t] *= scale;
-  }
-  return bets;
-}
-
-function calcBlowoutScenario(blowoutBets, budget, winningTeam) {
-  const M     = BLOWOUT_MULTS[winningTeam] || 0;
-  const stake = blowoutBets[winningTeam]   || 0;
-  const cp    = csvMultToPrice(M);
-  const payout = (stake > 0 && M > 1) ? kalshiPayout(stake, cp) : 0;
-  return { profit: payout - budget, payout, stake, mult: M, centsPrice: cp,
-           totalWinnings: payout, losingStaked: budget - stake, breakdown: [] };
 }
 
 // ── CSV Parsing ───────────────────────────────────────────────────────────────
@@ -471,7 +504,6 @@ function parseCSV() {
   BRACKETS = brackets;
   COLS = cols;
   MULTIPLIERS = multipliers;
-  BLOWOUT_MULTS = {};
   computePrices();
   SCENARIOS = buildScenarios();
 
@@ -488,7 +520,6 @@ function parseCSV() {
     : '';
   statusEl.innerHTML = `<div class="success-box">Parsed ${brackets.length} margin rows &times; ${cols.length} combos = ${brackets.length * cols.length} total bets. ${SCENARIOS.length} scenarios.${warnHtml}</div>`;
   previewEl.innerHTML = renderParsedPreview();
-  buildBlowoutCapInputs();
   document.getElementById('settingsSection').style.display = 'block';
   document.getElementById('placeholder').style.display = 'none';
   // Update header subtitle with actual team names
@@ -498,40 +529,18 @@ function parseCSV() {
 }
 
 function renderParsedPreview() {
-  const teams = [...new Set(COLS.map(c => c.team))];
-  const lastBrKey = BRACKETS[BRACKETS.length - 1]?.key;
-
   let html = `<table class="preview-table"><thead><tr><th class="left">Win Margin</th>`;
   for (const col of COLS) html += `<th>${col.label}</th>`;
-  for (const team of teams) {
-    const label = team.charAt(0).toUpperCase() + team.slice(1);
-    html += `<th style="color:var(--red)">${label} BLOWOUT</th>`;
-  }
   html += '</tr></thead><tbody>';
-
   for (const br of BRACKETS) {
     html += `<tr><td class="margin-label">${br.label}</td>`;
     for (const col of COLS) {
-      const m  = (MULTIPLIERS[br.key] || {})[col.key];
-      const cp = (PRICES[br.key]      || {})[col.key];
+      const m = (MULTIPLIERS[br.key] || {})[col.key];
+      const cp = (PRICES[br.key] || {})[col.key];
       if (m) {
         const am = cp ? (100 / cp).toFixed(2) : m.toFixed(2);
         const priceLabel = cp ? `$0.${cp.toString().padStart(2,'0')} → ${am}x` : '';
         html += `<td class="mult" title="${priceLabel}">${m}x<div style="font-size:.48rem;color:var(--dim)">${priceLabel}</div></td>`;
-      } else {
-        html += '<td style="color:var(--dim)">—</td>';
-      }
-    }
-    for (const team of teams) {
-      if (br.key === lastBrKey) {
-        const existing = BLOWOUT_MULTS[team] || '';
-        html += `<td>
-          <input type="number" id="blowout_mult_${team}" value="${existing}"
-            min="1.01" step="0.1" placeholder="e.g. 2.5"
-            style="width:72px;background:var(--bg);border:1px solid var(--border);color:var(--text);font-family:var(--font);padding:3px 6px;font-size:.62rem;text-align:right"
-            oninput="readBlowoutMults(); updateBlowoutHints()">
-          <div id="blowout_warn_${team}" style="font-size:.48rem;color:var(--red);margin-top:2px"></div>
-        </td>`;
       } else {
         html += '<td style="color:var(--dim)">—</td>';
       }
@@ -695,81 +704,6 @@ function buildMarginProbInputs() {
   document.getElementById('marginProbInputs').innerHTML = html;
 }
 
-function readBlowoutMults() {
-  const teams = [...new Set(COLS.map(c => c.team))];
-  BLOWOUT_MULTS = {};
-  for (const team of teams) {
-    const el = document.getElementById(`blowout_mult_${team}`);
-    if (!el) continue;
-    const val = parseFloat(el.value);
-    const warnEl = document.getElementById(`blowout_warn_${team}`);
-    if (!isNaN(val) && val > 1) {
-      BLOWOUT_MULTS[team] = val;
-      if (warnEl) warnEl.textContent = '';
-    } else if (el.value.trim() !== '') {
-      if (warnEl) warnEl.textContent = 'must be > 1x';
-    }
-  }
-}
-
-function buildBlowoutCapInputs() {
-  const teams = [...new Set(COLS.map(c => c.team))];
-  const budget = parseFloat(document.getElementById('budget').value) || 10;
-  let html = '';
-  for (const team of teams) {
-    const capVal = (BLOWOUT_CAPS[team] !== undefined) ? BLOWOUT_CAPS[team] : budget;
-    const label  = team.charAt(0).toUpperCase() + team.slice(1);
-    html += `<div class="col">
-      <label class="red">Max loss if ${label} blowout ($)</label>
-      <input type="number" id="blowout_cap_${team}" value="${capVal}" min="0" step="0.5"
-        oninput="readBlowoutCaps(); updateBlowoutHints()">
-      <div class="hint" id="blowout_hint_${team}" style="min-height:14px"></div>
-    </div>`;
-  }
-  document.getElementById('blowoutCapRow').innerHTML = html;
-  readBlowoutCaps();
-  updateBlowoutHints();
-}
-
-function readBlowoutCaps() {
-  const teams = [...new Set(COLS.map(c => c.team))];
-  BLOWOUT_CAPS = {};
-  for (const team of teams) {
-    const el = document.getElementById(`blowout_cap_${team}`);
-    if (el) BLOWOUT_CAPS[team] = parseFloat(el.value) || 0;
-  }
-}
-
-function updateBlowoutHints() {
-  const budget = parseFloat(document.getElementById('budget').value) || 10;
-  readBlowoutMults();
-  readBlowoutCaps();
-  const blowoutBets = computeBlowoutBets(budget);
-  const teams = [...new Set(COLS.map(c => c.team))];
-  for (const team of teams) {
-    const hintEl = document.getElementById(`blowout_hint_${team}`);
-    if (!hintEl) continue;
-    const b = blowoutBets[team] || 0;
-    if (b > 0.001) {
-      hintEl.textContent = `$${b.toFixed(2)} reserved for blowout hedge`;
-      hintEl.style.color = 'var(--gold)';
-    } else {
-      hintEl.textContent = 'No hedge active (enter mult above and lower cap)';
-      hintEl.style.color = 'var(--dim)';
-    }
-  }
-  const clampWarn = document.getElementById('blowoutClampWarn');
-  if (clampWarn) {
-    const rawTotal = teams.reduce((sum, team) => {
-      const M   = BLOWOUT_MULTS[team] || 0;
-      const cap = (BLOWOUT_CAPS[team] !== undefined) ? BLOWOUT_CAPS[team] : budget;
-      if (M <= 1 || cap >= budget) return sum;
-      return sum + (budget - cap) / M;
-    }, 0);
-    clampWarn.style.display = rawTotal > budget ? 'block' : 'none';
-  }
-}
-
 // ── Optimizer ─────────────────────────────────────────────────────────────────
 function flatToBets(flat) {
   const b = {};
@@ -781,7 +715,7 @@ function flatToBets(flat) {
 }
 
 function optimizeBets(budget, minProfitTarget, itersOverride) {
-  const itersRaw = itersOverride !== undefined ? itersOverride : parseInt(document.getElementById('iterations').value, 10);
+  const itersRaw = itersOverride != null ? itersOverride : parseInt(document.getElementById('iterations').value, 10);
   const ITERS = Number.isFinite(itersRaw) && itersRaw >= 100 ? itersRaw : 100000;
   const n = BRACKETS.length * COLS.length;
   let flat = new Array(n).fill(budget / n);
@@ -849,20 +783,16 @@ function optimizeBets(budget, minProfitTarget, itersOverride) {
 
 // ── Run ───────────────────────────────────────────────────────────────────────
 function runOptimizer() {
-  if (BRACKETS.length === 0) { alert('Parse a CSV first.'); return; }
-  const budget = parseFloat(document.getElementById('budget').value) || 10;
+  if (BRACKETS.length === 0) {
+    alert('Parse a CSV first.');
+    return;
+  }
+  const budget  = parseFloat(document.getElementById('budget').value) || 10;
   const minProfitRaw = document.getElementById('minProfit').value.trim();
   const minProfitTarget = minProfitRaw === '' ? 0 : Number(minProfitRaw);
   const lastThresholdVal = BRACKETS[BRACKETS.length - 1]?.threshold ?? Infinity;
   const blowoutRaw = document.getElementById('blowoutAt').value.trim();
   BLOWOUT_AT = blowoutRaw === '' ? lastThresholdVal : parseFloat(blowoutRaw);
-
-  readBlowoutMults();
-  readBlowoutCaps();
-  const blowoutBets  = computeBlowoutBets(budget);
-  const blowoutTotal = Object.values(blowoutBets).reduce((a, b) => a + b, 0);
-  const comboBudget  = Math.max(0, budget - blowoutTotal);
-  const effectiveFloor = minProfitTarget + blowoutTotal;
 
   const btn = document.getElementById('optimizeBtn');
   const itersDisplay = parseInt(document.getElementById('iterations').value, 10) || 100000;
@@ -871,45 +801,34 @@ function runOptimizer() {
   document.getElementById('results').innerHTML = `<div class="placeholder-msg">Running optimizer (${itersDisplay.toLocaleString()} iterations)...</div>`;
 
   setTimeout(() => {
-    try {
-    const bets   = optimizeBets(comboBudget, effectiveFloor);
+    const bets   = optimizeBets(budget, minProfitTarget);
     const scenProbs = getProbs();
     const results = SCENARIOS.map(s => {
-      if (s.isBlowout) {
-        const bc = calcBlowoutScenario(blowoutBets, budget, s.team);
-        return { ...s, ...bc, prob: scenProbs[s.rangeKey] || 0, isBeyondGuarantee: false };
-      }
       const r = calcScenario(bets, s);
-      const isBeyondGuarantee = s.lo >= BLOWOUT_AT;
-      return {
-        ...s, ...r,
-        profit: r.profit - blowoutTotal,
-        prob: scenProbs[s.rangeKey] || 0,
-        isBeyondGuarantee,
-      };
+      // Mark scenarios beyond the guarantee boundary as "custom blowout"
+      const isBeyondGuarantee = !s.isBlowout && s.lo >= BLOWOUT_AT;
+      return { ...s, ...r, prob: scenProbs[s.rangeKey] || 0, isBeyondGuarantee };
     });
+    // Stats: only hedgeable scenarios within guarantee boundary
     const hedgeResults = results.filter(r => !r.isBlowout && !r.isUnhedgeable && !r.isBeyondGuarantee);
     const hedgeProfits = hedgeResults.map(r => r.profit);
-    const ev = results.reduce((sum, r) => sum + r.profit * r.prob, 0);
+    const ev = results.reduce((sum, r) => sum + r.profit * r.prob, 0); // EV includes blowout
     const stats = {
-      min: hedgeProfits.length ? Math.min(...hedgeProfits) : 0,
-      max: hedgeProfits.length ? Math.max(...hedgeProfits) : 0,
-      avg: hedgeProfits.length ? hedgeProfits.reduce((a, b) => a + b, 0) / hedgeProfits.length : 0,
+      min: Math.min(...hedgeProfits),
+      max: Math.max(...hedgeProfits),
+      avg: hedgeProfits.reduce((a, b) => a + b, 0) / hedgeProfits.length,
       ev,
     };
-    render(bets, results, stats, budget, minProfitTarget, blowoutBets, blowoutTotal);
+    render(bets, results, stats, budget, minProfitTarget);
+    renderBlowoutHedgeResults(bets, results);
+    // Init or re-init charts if budget changed
     if (chartBudget !== budget) {
       initD3Charts(budget);
     } else {
       document.getElementById('chartSection').style.display = 'block';
     }
-    } catch(e) {
-      console.error('Optimizer error:', e);
-      document.getElementById('results').innerHTML = `<div class="error-box">Optimizer error: ${e.message}</div>`;
-    }
-    btn.disabled = false;
-    btn.textContent = 'OPTIMIZE';
-    setTimeout(() => renderBlowoutChart(budget, minProfitTarget), 50);
+    // Frontier sweep re-enables the button when done
+    runGuaranteeSweep(budget, btn);
   }, 30);
 }
 
@@ -925,10 +844,8 @@ function rangeLabel(lo, hi) {
   return `Win by ${loInt}–${Math.floor(hi)} pts`;
 }
 
-function render(bets, results, stats, budget, minProfitTarget, blowoutBets, blowoutTotal) {
-  const comboDeployed = BRACKETS.flatMap(br => COLS.map(col => (bets[br.key] || {})[col.key] || 0)).reduce((a, b) => a + b, 0);
-  const totalBet = comboDeployed + (blowoutTotal || 0);
-  const hasBlowoutHedge = (blowoutTotal || 0) > 0.001;
+function render(bets, results, stats, budget, minProfitTarget) {
+  const totalBet = BRACKETS.flatMap(br => COLS.map(col => (bets[br.key] || {})[col.key] || 0)).reduce((a, b) => a + b, 0);
 
   const hedgeResults      = results.filter(r => !r.isBlowout && !r.isUnhedgeable && !r.isBeyondGuarantee);
   const unhedgeableResults = results.filter(r => !r.isBlowout && r.isUnhedgeable);
@@ -958,23 +875,17 @@ function render(bets, results, stats, budget, minProfitTarget, blowoutBets, blow
     const label = minProfitTarget <= 0.05
       ? 'BREAK-EVEN GUARANTEED'
       : `MIN $${minProfitTarget.toFixed(2)} PROFIT GUARANTEED`;
-    const blowoutNote = hasBlowoutHedge
-      ? ` <span style="color:var(--gold)">$${(blowoutTotal).toFixed(2)} reserved for blowout hedges (reduces combo profits by that amount).</span>`
-      : ` Blowout (win by ${lastThreshold}+ pts) is unhedgeable — you lose $${totalBet.toFixed(2)} deployed in that case.`;
     html += `<div style="background:#081a08;border:1px solid #1a5a1a;color:#80c080;padding:10px 14px;font-size:.62rem;margin-bottom:12px;line-height:1.7">
       <strong style="color:var(--green);letter-spacing:.1em">${label}</strong> across all ${hedgeResults.length} hedged scenarios (margin 0–${guaranteeUpTo} pts).
       ${beyondCount > 0 ? `<span style="color:#f0c040">Win by ${guaranteeUpTo}–${lastThreshold} pts: ${beyondCount} unguaranteed scenarios (outside floor).</span> ` : ''}
-      ${blowoutNote}
+      Blowout (win by ${lastThreshold}+ pts) is unhedgeable — you lose $${totalBet.toFixed(2)} deployed in that case.
     </div>`;
   } else {
-    const blowoutNoteFail = hasBlowoutHedge
-      ? ` <span style="color:var(--gold)">$${(blowoutTotal).toFixed(2)} reserved for blowout hedges.</span>`
-      : ` Blowout (win by ${lastThreshold}+ pts) is always <span style="color:var(--red)">-$${totalBet.toFixed(2)}</span>.`;
     html += `<div style="background:var(--surface2);border:1px solid var(--border2);color:var(--muted);padding:10px 14px;font-size:.62rem;margin-bottom:12px;line-height:1.7">
       <strong style="color:var(--text);letter-spacing:.08em">FLOOR NOT MET</strong> — worst hedged scenario: ${fmt(worstHedged, true)} vs target ${fmt(minProfitTarget, true)}.
       Try a lower Min Profit target, or increase your budget.
       ${beyondCount > 0 ? `Win by ${guaranteeUpTo}–${lastThreshold} pts: ${beyondCount} unguaranteed scenarios. ` : ''}
-      ${blowoutNoteFail}
+      Blowout (win by ${lastThreshold}+ pts) is always <span style="color:var(--red)">-$${totalBet.toFixed(2)}</span>.
     </div>`;
   }
 
@@ -985,25 +896,29 @@ function render(bets, results, stats, budget, minProfitTarget, blowoutBets, blow
 
   // Allocation table — compute actual deployed totals for display
   let totalDeployed = 0;
+  let totalEnterAmt = 0;
   const betGrid = {};
   for (const br of BRACKETS) {
     betGrid[br.key] = {};
     for (const col of COLS) {
-      const stake    = (bets[br.key] || {})[col.key] || 0;
-      const cp       = (PRICES[br.key] || {})[col.key] || 100;
+      const stake     = (bets[br.key] || {})[col.key] || 0;
+      const cp        = (PRICES[br.key] || {})[col.key] || 100;
       const contracts = kalshiContracts(stake, cp);
-      const cost     = contracts * cp / 100;
-      betGrid[br.key][col.key] = { stake, cp, contracts, cost };
+      const cost      = contracts * cp / 100;
+      const enterAmt  = ceilToDime(cost); // round up to nearest $0.10 — Kalshi's input precision
+      const returned  = parseFloat((enterAmt - cost).toFixed(2));
+      betGrid[br.key][col.key] = { stake, cp, contracts, cost, enterAmt, returned };
       totalDeployed += cost;
+      totalEnterAmt += enterAmt;
     }
   }
   const remainder = Math.max(0, budget - totalDeployed);
 
   html += `<div class="section-title" style="margin-bottom:4px">BET ALLOCATION — enter these amounts in Kalshi</div>`;
   html += `<div style="font-size:.54rem;color:var(--dim);margin-bottom:10px;line-height:1.6">
-    Amounts shown are what Kalshi will actually charge after integer contract rounding.
-    <strong style="color:var(--text)">Deployed: $${totalDeployed.toFixed(2)}</strong>
-    ${remainder > 0.005 ? `· <span style="color:var(--gold)">Remainder: $${remainder.toFixed(2)} returned unspent</span>` : `· <span style="color:var(--green)">Budget fully deployed</span>`}
+    Amounts are rounded up to the nearest <strong style="color:var(--text)">$0.10</strong> (Kalshi's input precision). Kalshi floors to whole contracts and refunds any unspent cents.
+    Total to enter: <strong style="color:var(--text)">$${totalEnterAmt.toFixed(1)}</strong> · Kalshi actually charges: <strong style="color:var(--text)">$${totalDeployed.toFixed(2)}</strong>
+    ${remainder > 0.005 ? `· <span style="color:var(--gold)">$${remainder.toFixed(2)} of budget unused</span>` : `· <span style="color:var(--green)">Budget fully deployed</span>`}
   </div>`;
   html += '<div class="alloc-wrap"><table class="alloc-table"><thead><tr><th class="left">MARGIN</th>';
   for (const col of COLS) html += `<th>${col.label}</th>`;
@@ -1011,51 +926,22 @@ function render(bets, results, stats, budget, minProfitTarget, blowoutBets, blow
   for (const br of BRACKETS) {
     html += `<tr><td class="margin-col">${br.label}</td>`;
     for (const col of COLS) {
-      const { stake, cp, contracts, cost } = betGrid[br.key][col.key];
+      const { stake, cp, contracts, cost, enterAmt, returned } = betGrid[br.key][col.key];
       const am = (100 / cp).toFixed(2);
       const priceStr = `$0.${cp.toString().padStart(2,'0')}`;
-      const returned = stake - cost;
       if (cost < 0.005) {
         html += `<td style="color:var(--dim);text-align:center;font-size:.6rem">—</td>`;
       } else {
         html += `<td title="Price: ${priceStr} · ${contracts} contracts · optimizer stake $${stake.toFixed(2)}">
-          <div class="bet-amount">$${cost.toFixed(2)}</div>
+          <div class="bet-amount">$${enterAmt.toFixed(1)}</div>
           <div class="bet-mult">${am}x · ${contracts} cts <span style="color:var(--dim)">→ $${contracts.toFixed(0)}</span></div>
-          ${returned > 0.005 ? `<div style="font-size:.44rem;color:var(--dim)">↩ $${returned.toFixed(2)} returned</div>` : ''}
+          ${returned > 0.005 ? `<div style="font-size:.44rem;color:var(--dim)">↩ $${returned.toFixed(2)} refunded by Kalshi</div>` : ''}
         </td>`;
       }
     }
     html += '</tr>';
   }
   html += '</tbody></table></div>';
-
-  if (hasBlowoutHedge) {
-    const teams = [...new Set(COLS.map(c => c.team))];
-    html += `<div style="margin-top:6px;margin-bottom:16px">
-      <div class="section-title" style="font-size:.5rem;color:var(--red);margin-bottom:6px">BLOWOUT HEDGE BETS</div>
-      <table class="alloc-table" style="min-width:auto">
-        <thead><tr>
-          <th class="left">BET</th><th>STAKE</th><th>MULTIPLIER</th><th>PAYS IF BLOWOUT</th><th>LOSS CAP</th>
-        </tr></thead><tbody>`;
-    for (const team of teams) {
-      const b = (blowoutBets || {})[team] || 0;
-      if (b < 0.001) continue;
-      const M  = BLOWOUT_MULTS[team] || 0;
-      const cp = csvMultToPrice(M);
-      const payout = kalshiPayout(b, cp);
-      const cap = (BLOWOUT_CAPS[team] !== undefined) ? BLOWOUT_CAPS[team] : budget;
-      const label = team.charAt(0).toUpperCase() + team.slice(1);
-      const lastThresh = BRACKETS[BRACKETS.length - 1]?.threshold ?? '?';
-      html += `<tr>
-        <td class="margin-col" style="text-align:left">${label} wins by over ${lastThresh} pts</td>
-        <td><div class="bet-amount">$${b.toFixed(2)}</div></td>
-        <td><div class="bet-mult">${M}x</div></td>
-        <td style="color:var(--green);font-weight:700">+$${payout.toFixed(2)}</td>
-        <td style="color:var(--gold)">-$${cap.toFixed(2)} max</td>
-      </tr>`;
-    }
-    html += '</tbody></table></div>';
-  }
 
   // Hedged scenario cards
   html += `<div class="section-title" style="margin-bottom:10px">HEDGED SCENARIOS (margin 0–${guaranteeUpTo} pts) — click to verify math</div>`;
@@ -1098,23 +984,9 @@ function render(bets, results, stats, budget, minProfitTarget, blowoutBets, blow
         </div>
       </div>
       <div class="sc-detail">
-        ${r.isBlowout ? (() => {
-          if (!hasBlowoutHedge || !((blowoutBets || {})[r.team] > 0)) {
-            return `<div style="background:#2a0808;padding:6px 8px;font-size:.6rem;color:#e09090;margin-bottom:8px;line-height:1.6">
-              No combo pays when the winning margin exceeds ${lastThreshold} pts. Every bet loses.
-            </div>`;
-          }
-          const teamLabel  = r.team.charAt(0).toUpperCase() + r.team.slice(1);
-          const teams      = [...new Set(COLS.map(c => c.team))];
-          const otherTeam  = teams.find(t => t !== r.team) || '';
-          const otherLabel = otherTeam.charAt(0).toUpperCase() + otherTeam.slice(1);
-          const otherStake = (blowoutBets || {})[otherTeam] || 0;
-          return `<div style="background:#1a1400;padding:6px 8px;font-size:.6rem;color:#d0b060;margin-bottom:8px;line-height:1.6">
-            <strong>${teamLabel} blowout hedge wins:</strong> $${r.stake.toFixed(2)} &times; ${r.mult}x = +$${r.payout.toFixed(2)}<br>
-            ${otherStake > 0.001 ? `<span style="color:#e09090">${otherLabel} blowout hedge loses: -$${otherStake.toFixed(2)}</span><br>` : ''}
-            <span style="color:#e09090">All combo bets lose: -$${(budget - (blowoutTotal || 0)).toFixed(2)}</span>
-          </div>`;
-        })() : ''}
+        ${r.isBlowout ? `<div style="background:#2a0808;padding:6px 8px;font-size:.6rem;color:#e09090;margin-bottom:8px;line-height:1.6">
+          No combo pays when the winning margin exceeds ${lastThreshold} pts. Every bet loses.
+        </div>` : ''}
         ${isUnhLabel ? `<div style="background:#2a0808;padding:6px 8px;font-size:.6rem;color:#e09090;margin-bottom:8px;line-height:1.6">
           The paying bracket for this range has a multiplier &le; 1x. Even putting all budget on the winning bet returns only your stake (net 0) — all other bets still lose. Use a multiplier &gt; 1x in your CSV to hedge this range.
         </div>` : ''}
@@ -1189,113 +1061,6 @@ function render(bets, results, stats, budget, minProfitTarget, blowoutBets, blow
 }
 
 
-function computeBlowoutChartData(budget, minProfitTarget) {
-  const teams = [...new Set(COLS.map(c => c.team))];
-  if (!Object.values(BLOWOUT_MULTS).some(m => m > 1)) return null;
-  const STEPS = 20;
-  const result = {};
-  for (let ti = 0; ti < teams.length; ti++) {
-    const sweepTeam = teams[ti];
-    const data = [];
-    for (let i = 0; i <= STEPS; i++) {
-      const cap = (budget * i) / STEPS;
-      const savedBA = BLOWOUT_AT;
-      const savedCaps = BLOWOUT_CAPS;
-      BLOWOUT_CAPS = { ...BLOWOUT_CAPS, [sweepTeam]: cap };
-      let bb;
-      try {
-        bb = computeBlowoutBets(budget);
-      } finally {
-        BLOWOUT_CAPS = savedCaps;
-        BLOWOUT_AT = savedBA;
-      }
-      const bt = Object.values(bb).reduce((a, b) => a + b, 0);
-      const cb = Math.max(0, budget - bt);
-      const ef = minProfitTarget + bt;
-      const savedBlowoutAt = BLOWOUT_AT;
-      BLOWOUT_AT = savedBlowoutAt; // unchanged
-      const bets   = optimizeBets(cb, ef, 5000);
-      const hScen  = SCENARIOS.filter(s => !s.isBlowout && !s.isUnhedgeable && s.lo < BLOWOUT_AT);
-      const profits = hScen.map(s => calcScenario(bets, s).profit - bt);
-      const minP   = profits.length ? Math.min(...profits) : -budget;
-      data.push({ cap, minProfit: minP });
-    }
-    result[sweepTeam] = data;
-  }
-  return { data: result, teams };
-}
-
-function renderBlowoutChart(budget, minProfitTarget) {
-  const section = document.getElementById('blowoutChartSection');
-  const canvas  = document.getElementById('chart-blowout');
-  if (!canvas) return;
-  const hasBlowoutMults = Object.values(BLOWOUT_MULTS).some(m => m > 1);
-  if (!hasBlowoutMults) { if (section) section.style.display = 'none'; return; }
-  if (section) section.style.display = 'block';
-
-  const chartData = computeBlowoutChartData(budget, minProfitTarget);
-  if (!chartData) return;
-
-  canvas.width = canvas.offsetWidth || 600;
-  const W = canvas.width, H = canvas.height;
-  const PAD = { top: 10, right: 70, bottom: 36, left: 52 };
-  const cW = W - PAD.left - PAD.right;
-  const cH = H - PAD.top - PAD.bottom;
-  const ctx = canvas.getContext('2d');
-  ctx.clearRect(0, 0, W, H);
-
-  const teams  = chartData.teams;
-  const colors = ['#4a78cc', '#d4a830'];
-  const allVals = Object.values(chartData.data).flatMap(d => d.map(p => p.minProfit));
-  const minV = Math.min(...allVals, 0), maxV = Math.max(...allVals, 0);
-  const vRange = maxV - minV || 1;
-  const toX = cap => PAD.left + (cap / budget) * cW;
-  const toY = v   => PAD.top  + (1 - (v - minV) / vRange) * cH;
-
-  ctx.strokeStyle = '#1a1a26'; ctx.lineWidth = 1;
-  for (let i = 0; i <= 4; i++) {
-    const y = PAD.top + (i / 4) * cH;
-    ctx.beginPath(); ctx.moveTo(PAD.left, y); ctx.lineTo(PAD.left + cW, y); ctx.stroke();
-    const v = maxV - (i / 4) * vRange;
-    ctx.fillStyle = '#3a3a4e'; ctx.font = '9px monospace'; ctx.textAlign = 'right';
-    ctx.fillText((v >= 0 ? '+' : '') + v.toFixed(1), PAD.left - 4, y + 3);
-  }
-  if (minV < 0 && maxV > 0) {
-    const y0 = toY(0);
-    ctx.strokeStyle = '#252535'; ctx.setLineDash([3, 3]);
-    ctx.beginPath(); ctx.moveTo(PAD.left, y0); ctx.lineTo(PAD.left + cW, y0); ctx.stroke();
-    ctx.setLineDash([]);
-  }
-  for (let ti = 0; ti < teams.length; ti++) {
-    const team = teams[ti];
-    const data = chartData.data[team];
-    if (!data) continue;
-    const color = colors[ti % colors.length];
-    const curCap = (BLOWOUT_CAPS[team] !== undefined) ? BLOWOUT_CAPS[team] : budget;
-    if (curCap >= 0 && curCap <= budget) {
-      ctx.strokeStyle = color + '55'; ctx.setLineDash([2, 4]); ctx.lineWidth = 1;
-      ctx.beginPath(); ctx.moveTo(toX(curCap), PAD.top); ctx.lineTo(toX(curCap), PAD.top + cH); ctx.stroke();
-      ctx.setLineDash([]);
-    }
-    ctx.fillStyle = color + '18';
-    ctx.beginPath();
-    data.forEach((d, i) => { i === 0 ? ctx.moveTo(toX(d.cap), toY(d.minProfit)) : ctx.lineTo(toX(d.cap), toY(d.minProfit)); });
-    ctx.lineTo(toX(data[data.length-1].cap), toY(0)); ctx.lineTo(toX(data[0].cap), toY(0));
-    ctx.closePath(); ctx.fill();
-    ctx.strokeStyle = color; ctx.lineWidth = 2;
-    ctx.beginPath();
-    data.forEach((d, i) => { i === 0 ? ctx.moveTo(toX(d.cap), toY(d.minProfit)) : ctx.lineTo(toX(d.cap), toY(d.minProfit)); });
-    ctx.stroke();
-    const last = data[data.length-1];
-    ctx.fillStyle = color; ctx.font = '9px monospace'; ctx.textAlign = 'left';
-    ctx.fillText(team.charAt(0).toUpperCase() + team.slice(1), toX(last.cap) + 4, toY(last.minProfit) + 3);
-  }
-  ctx.fillStyle = '#3a3a4e'; ctx.font = '9px monospace'; ctx.textAlign = 'center';
-  for (const f of [0, budget / 2, budget]) {
-    ctx.fillText('$' + f.toFixed(1), toX(f), H - PAD.bottom + 14);
-  }
-}
-
 function toggleProb() {
   const s = document.getElementById('probSection');
   const a = document.getElementById('probArrow');
@@ -1311,6 +1076,10 @@ function updateColumnHeaders() {
     const el = document.getElementById(`colH${i}`);
     if (el) el.innerHTML = `<span class="col-header-inner">${h}</span>`;
   });
+  const bl1 = document.getElementById('bhLabel1');
+  const bl2 = document.getElementById('bhLabel2');
+  if (bl1) bl1.textContent = t1 + ' BLOWOUT MULT';
+  if (bl2) bl2.textContent = t2 + ' BLOWOUT MULT';
 }
 
 function addTableRow(threshold = '', values = ['', '', '', '']) {
@@ -1603,6 +1372,378 @@ function computeAndPlot(xVal) {
 
 function clearAllCharts() {
   Object.values(chartInstances).forEach(c => c?.clear());
+}
+
+// ── Guarantee Frontier ────────────────────────────────────────────────────────
+function runGuaranteeSweep(budget, btn) {
+  const section   = document.getElementById('guaranteeFrontierSection');
+  const container = document.getElementById('guaranteeFrontierChart');
+  const maxLabel  = document.getElementById('frontierMaxLabel');
+  section.style.display = 'block';
+  maxLabel.textContent  = '';
+  container.innerHTML   = '<div style="text-align:center;color:var(--muted);padding:34px 0;font-size:.58rem;letter-spacing:.12em">COMPUTING FRONTIER…</div>';
+  if (btn) { btn.disabled = true; btn.textContent = 'COMPUTING…'; }
+
+  setTimeout(() => {
+    const SWEEP_ITERS = 15000;
+    const N  = 22;
+    const lo = -budget * 0.25;
+    const hi =  budget * 0.55;
+    const points = [];
+
+    for (let i = 0; i <= N; i++) {
+      const target = parseFloat((lo + (hi - lo) * i / N).toFixed(2));
+      const bets   = optimizeBets(budget, target, SWEEP_ITERS);
+      const results = SCENARIOS.map(s => {
+        const r = calcScenario(bets, s);
+        return { ...s, ...r, isBeyondGuarantee: !s.isBlowout && s.lo >= BLOWOUT_AT };
+      });
+      const hedge = results.filter(r => !r.isBlowout && !r.isUnhedgeable && !r.isBeyondGuarantee);
+      const hp = hedge.map(r => r.profit);
+      const worstCase = hp.length ? Math.min(...hp) : -budget;
+      points.push({ target, worstCase });
+    }
+
+    // Max guarantee = highest target where worstCase still meets it (within 5¢ tolerance)
+    let maxGuarantee = lo;
+    for (const p of [...points].reverse()) {
+      if (p.worstCase >= p.target - 0.05) { maxGuarantee = p.target; break; }
+    }
+
+    maxLabel.textContent = `MAX GUARANTEE: $${maxGuarantee.toFixed(2)}`;
+    renderFrontierChart(container, points, maxGuarantee, budget);
+    if (btn) { btn.disabled = false; btn.textContent = 'OPTIMIZE'; }
+  }, 50);
+}
+
+function renderFrontierChart(container, points, maxGuarantee, budget) {
+  container.innerHTML = '';
+  const totalW = container.clientWidth || 700;
+  const m = { top: 36, right: 24, bottom: 52, left: 62 };
+  const W = totalW - m.left - m.right;
+  const H = 210 - m.top - m.bottom;
+
+  const xs = points.map(p => p.target);
+  const ys = points.map(p => p.worstCase);
+  const xDom = [Math.min(...xs), Math.max(...xs)];
+  const yPad = Math.max((Math.max(...ys) - Math.min(...ys)) * 0.18, 0.4);
+  const yDom = [Math.min(...ys) - yPad, Math.max(...ys) + yPad];
+
+  const xSc = d3.scaleLinear().domain(xDom).range([0, W]);
+  const ySc = d3.scaleLinear().domain(yDom).range([H, 0]);
+
+  const svg = d3.select(container).append('svg')
+    .attr('viewBox', `0 0 ${totalW} ${H + m.top + m.bottom}`)
+    .style('width', '100%').style('height', 'auto').style('display', 'block');
+
+  const g = svg.append('g').attr('transform', `translate(${m.left},${m.top})`);
+  g.append('rect').attr('width', W).attr('height', H).attr('fill', '#06060b');
+
+  // Grid
+  g.selectAll('.gy').data(ySc.ticks(5)).enter().append('line')
+    .attr('x1', 0).attr('x2', W).attr('y1', d => ySc(d)).attr('y2', d => ySc(d))
+    .attr('stroke', '#1a1a26').attr('stroke-dasharray', '3,5');
+  g.selectAll('.gx').data(xSc.ticks(6)).enter().append('line')
+    .attr('x1', d => xSc(d)).attr('x2', d => xSc(d)).attr('y1', 0).attr('y2', H)
+    .attr('stroke', '#1a1a26').attr('stroke-dasharray', '3,5');
+
+  // y=0 baseline
+  if (yDom[0] < 0 && yDom[1] > 0)
+    g.append('line').attr('x1', 0).attr('x2', W).attr('y1', ySc(0)).attr('y2', ySc(0))
+      .attr('stroke', '#2a2a3e').attr('stroke-width', 1);
+
+  // y=x diagonal: target = actual (reference)
+  const dLo = Math.max(xDom[0], yDom[0]);
+  const dHi = Math.min(xDom[1], yDom[1]);
+  if (dLo < dHi) {
+    g.append('line')
+      .attr('x1', xSc(dLo)).attr('y1', ySc(dLo)).attr('x2', xSc(dHi)).attr('y2', ySc(dHi))
+      .attr('stroke', '#3a3a52').attr('stroke-width', 1).attr('stroke-dasharray', '4,4');
+    g.append('text').attr('x', xSc(dHi) - 5).attr('y', ySc(dHi) - 6)
+      .attr('text-anchor', 'end')
+      .style('fill', '#3a3a52').style('font-size', '8px').style('font-family', 'JetBrains Mono,monospace')
+      .text('target = actual');
+  }
+
+  // Frontier curve
+  const lineGen = d3.line().x(p => xSc(p.target)).y(p => ySc(p.worstCase)).curve(d3.curveMonotoneX);
+  g.append('path').datum(points).attr('fill', 'none')
+    .attr('stroke', '#4a78cc').attr('stroke-width', 2.2).attr('stroke-linecap', 'round')
+    .attr('d', lineGen);
+
+  // Dots — green if feasible, dim if not
+  g.selectAll('.fdot').data(points).enter().append('circle').attr('class', 'fdot')
+    .attr('r', 3.5).attr('fill', d => d.worstCase >= d.target - 0.05 ? '#4a78cc' : '#3a3a4e')
+    .attr('stroke', '#06060b').attr('stroke-width', 1.5)
+    .attr('cx', d => xSc(d.target)).attr('cy', d => ySc(d.worstCase));
+
+  // Max guarantee vertical line
+  if (maxGuarantee >= xDom[0] && maxGuarantee <= xDom[1]) {
+    g.append('line')
+      .attr('x1', xSc(maxGuarantee)).attr('x2', xSc(maxGuarantee))
+      .attr('y1', 0).attr('y2', H)
+      .attr('stroke', '#4d9468').attr('stroke-width', 1.8).attr('stroke-dasharray', '5,3');
+
+    const lx = xSc(maxGuarantee);
+    const anchor = lx > W * 0.75 ? 'end' : 'start';
+    const offset = anchor === 'end' ? -7 : 7;
+    g.append('text').attr('x', lx + offset).attr('y', 16)
+      .attr('text-anchor', anchor)
+      .style('fill', '#4d9468').style('font-size', '9px').style('font-weight', '700')
+      .style('font-family', 'JetBrains Mono,monospace')
+      .text(`MAX: $${maxGuarantee.toFixed(2)}`);
+  }
+
+  // Axes
+  const xAx = g.append('g').attr('transform', `translate(0,${H})`)
+    .call(d3.axisBottom(xSc).ticks(6).tickFormat(d => `$${d.toFixed(1)}`));
+  xAx.select('.domain').attr('stroke', '#252535');
+  xAx.selectAll('text').style('fill', '#4a4a60').style('font-size', '9px').style('font-family', 'JetBrains Mono,monospace');
+
+  const yAx = g.append('g')
+    .call(d3.axisLeft(ySc).ticks(5).tickFormat(d => `$${d.toFixed(1)}`));
+  yAx.select('.domain').attr('stroke', '#252535');
+  yAx.selectAll('text').style('fill', '#4a4a60').style('font-size', '9px').style('font-family', 'JetBrains Mono,monospace');
+
+  // Labels
+  g.append('text').attr('x', W / 2).attr('y', H + 42).attr('text-anchor', 'middle')
+    .style('fill', '#333348').style('font-size', '8px').style('letter-spacing', '.14em')
+    .style('font-family', 'JetBrains Mono,monospace').text('MIN PROFIT TARGET ($) →');
+
+  g.append('text').attr('transform', 'rotate(-90)').attr('x', -H / 2).attr('y', -48)
+    .attr('text-anchor', 'middle').style('fill', '#333348').style('font-size', '8px')
+    .style('letter-spacing', '.14em').style('font-family', 'JetBrains Mono,monospace')
+    .text('ACTUAL WORST CASE ($)');
+
+  g.append('text').attr('x', W / 2).attr('y', -18).attr('text-anchor', 'middle')
+    .style('fill', '#4a78cc').style('font-size', '9px').style('font-weight', '700')
+    .style('letter-spacing', '.22em').style('font-family', 'JetBrains Mono,monospace')
+    .text('GUARANTEE FRONTIER');
+
+  // Footnote
+  g.append('text').attr('x', W).attr('y', H + 50).attr('text-anchor', 'end')
+    .style('fill', '#252535').style('font-size', '7.5px').style('font-family', 'JetBrains Mono,monospace')
+    .text('fast sweep · 15k iters/pt');
+}
+
+// ── Blowout Hedge ─────────────────────────────────────────────────────────────
+
+function getTotalDeployed(bets) {
+  let total = 0;
+  for (const br of BRACKETS)
+    for (const col of COLS) {
+      const stake = (bets[br.key] || {})[col.key] || 0;
+      total += kalshiCost(stake, (PRICES[br.key] || {})[col.key] || 100);
+    }
+  return total;
+}
+
+function calcBlowoutHedge(hedgeBudget, mult1, mult2) {
+  if (!mult1 || !mult2 || hedgeBudget <= 0) return null;
+  const half = hedgeBudget / 2;
+  const cp1 = csvMultToPrice(mult1);
+  const cp2 = csvMultToPrice(mult2);
+  const contracts1 = kalshiContracts(half, cp1);
+  const contracts2 = kalshiContracts(half, cp2);
+  const cost1 = contracts1 * cp1 / 100;
+  const cost2 = contracts2 * cp2 / 100;
+  return {
+    cp1, cp2, contracts1, contracts2, cost1, cost2,
+    totalCost: cost1 + cost2,
+    payout1: contracts1,   // $1 per contract
+    payout2: contracts2,
+    netTeam1Blowout: contracts1 - cost1 - cost2,
+    netTeam2Blowout: contracts2 - cost2 - cost1,
+  };
+}
+
+function renderBlowoutHedgeResults(bets, results) {
+  const mult1     = parseFloat(document.getElementById('bhMult1').value)    || 0;
+  const mult2     = parseFloat(document.getElementById('bhMult2').value)    || 0;
+  const budget    = parseFloat(document.getElementById('bhBudget').value)   || 0;
+  const graphMin  = parseFloat(document.getElementById('bhGraphMin').value) || 0;
+  const graphMax  = parseFloat(document.getElementById('bhGraphMax').value) || 10;
+  const step      = parseFloat(document.getElementById('bhStep').value)     || 0.5;
+
+  const hedgeEl   = document.getElementById('blowoutHedgeResults');
+  const graphSec  = document.getElementById('blowoutHedgeGraphSection');
+
+  if (!mult1 || !mult2) {
+    hedgeEl.innerHTML = '';
+    graphSec.style.display = 'none';
+    return;
+  }
+
+  const teams      = [...new Set(COLS.map(c => c.team))];
+  const team1      = teams[0] || 'team1';
+  const team2      = teams[1] || teams[0] || 'team2';
+  const t1Name     = team1.charAt(0).toUpperCase() + team1.slice(1);
+  const t2Name     = team2.charAt(0).toUpperCase() + team2.slice(1);
+  const maxThr     = BRACKETS[BRACKETS.length - 1]?.threshold ?? 0;
+  const totalDep   = getTotalDeployed(bets);
+  const blowoutR   = results.find(r => r.isBlowout);
+  const comboLoss  = blowoutR?.profit ?? -totalDep;
+  const hedge      = calcBlowoutHedge(budget, mult1, mult2);
+
+  let html = `<div class="section bh-section" style="margin-top:0">`;
+  html += `<div class="section-title bh-title">BLOWOUT HEDGE RESULTS — OVER ${maxThr} PTS</div>`;
+
+  if (!hedge) {
+    html += `<div style="font-size:.6rem;color:var(--dim)">Set a positive hedge budget above to see results.</div></div>`;
+    hedgeEl.innerHTML = html;
+    graphSec.style.display = 'none';
+    return;
+  }
+
+  const final1 = comboLoss + hedge.netTeam1Blowout;
+  const final2 = comboLoss + hedge.netTeam2Blowout;
+  const am1    = (100 / hedge.cp1).toFixed(2);
+  const am2    = (100 / hedge.cp2).toFixed(2);
+
+  html += `<div style="font-size:.52rem;color:var(--dim);margin-bottom:16px;line-height:1.8">`;
+  html += `Blowout threshold: <strong style="color:var(--text)">${maxThr} pts</strong>. `;
+  html += `Hedge budget $${budget.toFixed(2)} split: $${(budget/2).toFixed(2)} each on `;
+  html += `${t1Name} Over ${maxThr} and ${t2Name} Over ${maxThr}.`;
+  html += `</div>`;
+
+  html += `<div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:10px;margin-bottom:16px">`;
+
+  // Column 1: Combo position (original)
+  html += `<div style="background:var(--surface2);border:1px solid var(--border);padding:14px;border-radius:3px">`;
+  html += `<div style="font-size:.48rem;letter-spacing:.2em;color:var(--muted);margin-bottom:10px;padding-bottom:6px;border-bottom:1px solid var(--border2)">ORIGINAL COMBO</div>`;
+  html += `<div class="detail-row"><span class="dr-l">Total deployed</span><span class="dr-r neg">-$${totalDep.toFixed(2)}</span></div>`;
+  html += `<div class="detail-row"><span class="dr-l">Any blowout result</span><span class="dr-r neg">$${comboLoss.toFixed(2)}</span></div>`;
+  html += `<div style="font-size:.48rem;color:var(--dim);margin-top:8px">All combo bets lose when margin &gt; ${maxThr} pts.</div>`;
+  html += `</div>`;
+
+  // Column 2: Hedge position
+  html += `<div style="background:var(--surface2);border:1px solid #2a1818;padding:14px;border-radius:3px">`;
+  html += `<div style="font-size:.48rem;letter-spacing:.2em;color:#cc6060;margin-bottom:10px;padding-bottom:6px;border-bottom:1px solid var(--border2)">HEDGE POSITION</div>`;
+  html += `<div class="detail-row"><span class="dr-l">${t1Name} Over ${maxThr}</span><span class="dr-r">${am1}x · ${hedge.contracts1} cts</span></div>`;
+  html += `<div class="detail-row"><span class="dr-l" style="padding-left:8px">cost</span><span class="dr-r neg">-$${hedge.cost1.toFixed(2)}</span></div>`;
+  html += `<div class="detail-row"><span class="dr-l" style="padding-left:8px">payout if wins</span><span class="dr-r pos">+$${hedge.payout1.toFixed(0)}</span></div>`;
+  html += `<div class="detail-row" style="margin-top:6px"><span class="dr-l">${t2Name} Over ${maxThr}</span><span class="dr-r">${am2}x · ${hedge.contracts2} cts</span></div>`;
+  html += `<div class="detail-row"><span class="dr-l" style="padding-left:8px">cost</span><span class="dr-r neg">-$${hedge.cost2.toFixed(2)}</span></div>`;
+  html += `<div class="detail-row"><span class="dr-l" style="padding-left:8px">payout if wins</span><span class="dr-r pos">+$${hedge.payout2.toFixed(0)}</span></div>`;
+  html += `<div style="font-size:.48rem;color:var(--dim);margin-top:8px;padding-top:6px;border-top:1px solid var(--border2)">Total hedge cost: <strong style="color:var(--text)">$${hedge.totalCost.toFixed(2)}</strong></div>`;
+  html += `</div>`;
+
+  // Column 3: Net outcomes
+  html += `<div style="background:var(--surface2);border:1px solid #2a1818;padding:14px;border-radius:3px">`;
+  html += `<div style="font-size:.48rem;letter-spacing:.2em;color:#cc6060;margin-bottom:10px;padding-bottom:6px;border-bottom:1px solid var(--border2)">NET BLOWOUT OUTCOMES</div>`;
+  html += `<div class="detail-row"><span class="dr-l">${t1Name} blowout</span><span class="dr-r ${final1 >= 0 ? 'pos' : 'neg'}">${fmt(final1, true)}</span></div>`;
+  html += `<div style="font-size:.48rem;color:var(--dim);margin-bottom:8px">was $${comboLoss.toFixed(2)} → saved $${(final1 - comboLoss).toFixed(2)}</div>`;
+  html += `<div class="detail-row"><span class="dr-l">${t2Name} blowout</span><span class="dr-r ${final2 >= 0 ? 'pos' : 'neg'}">${fmt(final2, true)}</span></div>`;
+  html += `<div style="font-size:.48rem;color:var(--dim);margin-bottom:8px">was $${comboLoss.toFixed(2)} → saved $${(final2 - comboLoss).toFixed(2)}</div>`;
+  html += `<div style="font-size:.5rem;color:var(--dim);margin-top:8px;padding-top:6px;border-top:1px solid var(--border2)">`;
+  html += `Non-blowout profit reduced by <strong style="color:var(--text)">$${hedge.totalCost.toFixed(2)}</strong> (hedge cost paid regardless)`;
+  html += `</div></div>`;
+
+  html += `</div></div>`; // end grid + section
+  hedgeEl.innerHTML = html;
+
+  renderBlowoutHedgeGraph(comboLoss, mult1, mult2, graphMin, graphMax, step, t1Name, t2Name, maxThr);
+}
+
+function renderBlowoutHedgeGraph(comboLoss, mult1, mult2, minBudget, maxBudget, step, t1Name, t2Name, maxThr) {
+  const section   = document.getElementById('blowoutHedgeGraphSection');
+  const container = document.getElementById('blowoutHedgeGraphContainer');
+
+  if (maxBudget <= minBudget || step <= 0) { section.style.display = 'none'; return; }
+
+  // Build simulation data
+  const pts = [];
+  let b = minBudget;
+  while (b <= maxBudget + step * 0.001) {
+    const bSnap = parseFloat(Math.min(b, maxBudget).toFixed(6));
+    const hedge = calcBlowoutHedge(bSnap, mult1, mult2);
+    if (hedge) pts.push({ x: bSnap, y1: comboLoss + hedge.netTeam1Blowout, y2: comboLoss + hedge.netTeam2Blowout });
+    if (bSnap >= maxBudget) break;
+    b = parseFloat((b + step).toFixed(6));
+  }
+  if (!pts.length) { section.style.display = 'none'; return; }
+
+  section.style.display = 'block';
+  container.innerHTML = '';
+
+  const totalW = container.clientWidth || 700;
+  const m = { top: 36, right: 90, bottom: 52, left: 62 };
+  const W = totalW - m.left - m.right;
+  const H = 220 - m.top - m.bottom;
+
+  const allY  = pts.flatMap(p => [p.y1, p.y2]);
+  const yMin  = Math.min(...allY), yMax = Math.max(...allY);
+  const yPad  = Math.max((yMax - yMin) * 0.15, 0.3);
+
+  const xSc = d3.scaleLinear().domain([minBudget, maxBudget]).range([0, W]);
+  const ySc = d3.scaleLinear().domain([yMin - yPad, yMax + yPad]).range([H, 0]);
+
+  const svg = d3.select(container).append('svg')
+    .attr('viewBox', `0 0 ${totalW} ${H + m.top + m.bottom}`)
+    .style('width', '100%').style('height', 'auto').style('display', 'block');
+
+  const g = svg.append('g').attr('transform', `translate(${m.left},${m.top})`);
+  g.append('rect').attr('width', W).attr('height', H).attr('fill', '#06060b');
+
+  // Grid
+  g.selectAll('.bgy').data(ySc.ticks(5)).enter().append('line')
+    .attr('x1', 0).attr('x2', W).attr('y1', d => ySc(d)).attr('y2', d => ySc(d))
+    .attr('stroke', '#1a1a26').attr('stroke-dasharray', '3,5');
+  g.selectAll('.bgx').data(xSc.ticks(6)).enter().append('line')
+    .attr('x1', d => xSc(d)).attr('x2', d => xSc(d)).attr('y1', 0).attr('y2', H)
+    .attr('stroke', '#1a1a26').attr('stroke-dasharray', '3,5');
+
+  // Zero line
+  const yDom = ySc.domain();
+  if (yDom[0] < 0 && yDom[1] > 0)
+    g.append('line').attr('x1', 0).attr('x2', W).attr('y1', ySc(0)).attr('y2', ySc(0))
+      .attr('stroke', '#2a2a3e').attr('stroke-width', 1);
+
+  // Lines
+  const lineGen = d3.line().curve(d3.curveMonotoneX);
+  g.append('path').datum(pts).attr('fill', 'none').attr('stroke', '#cc4f4f').attr('stroke-width', 2.2)
+    .attr('d', lineGen.x(d => xSc(d.x)).y(d => ySc(d.y1)));
+  g.append('path').datum(pts).attr('fill', 'none').attr('stroke', '#4a78cc').attr('stroke-width', 2.2)
+    .attr('d', lineGen.x(d => xSc(d.x)).y(d => ySc(d.y2)));
+
+  // Current budget marker
+  const curB = parseFloat(document.getElementById('bhBudget').value) || 0;
+  if (curB >= minBudget && curB <= maxBudget) {
+    g.append('line').attr('x1', xSc(curB)).attr('x2', xSc(curB)).attr('y1', 0).attr('y2', H)
+      .attr('stroke', '#d4a830').attr('stroke-width', 1.5).attr('stroke-dasharray', '4,3');
+    g.append('text').attr('x', xSc(curB) + 4).attr('y', 12)
+      .style('fill', '#d4a830').style('font-size', '8px').style('font-family', 'JetBrains Mono,monospace')
+      .text('current');
+  }
+
+  // Axes
+  const xAx = g.append('g').attr('transform', `translate(0,${H})`)
+    .call(d3.axisBottom(xSc).ticks(6).tickFormat(d => `$${d.toFixed(1)}`));
+  xAx.select('.domain').attr('stroke', '#252535');
+  xAx.selectAll('text').style('fill', '#4a4a60').style('font-size', '9px').style('font-family', 'JetBrains Mono,monospace');
+
+  const yAx = g.append('g').call(d3.axisLeft(ySc).ticks(5).tickFormat(d => `$${d.toFixed(1)}`));
+  yAx.select('.domain').attr('stroke', '#252535');
+  yAx.selectAll('text').style('fill', '#4a4a60').style('font-size', '9px').style('font-family', 'JetBrains Mono,monospace');
+
+  g.append('text').attr('x', W / 2).attr('y', H + 42).attr('text-anchor', 'middle')
+    .style('fill', '#333348').style('font-size', '8px').style('letter-spacing', '.14em')
+    .style('font-family', 'JetBrains Mono,monospace').text('BLOWOUT HEDGE BUDGET ($) →');
+  g.append('text').attr('transform', 'rotate(-90)').attr('x', -H / 2).attr('y', -48)
+    .attr('text-anchor', 'middle').style('fill', '#333348').style('font-size', '8px')
+    .style('letter-spacing', '.14em').style('font-family', 'JetBrains Mono,monospace')
+    .text('NET BLOWOUT OUTCOME ($)');
+  g.append('text').attr('x', W / 2).attr('y', -16).attr('text-anchor', 'middle')
+    .style('fill', '#cc6060').style('font-size', '9px').style('font-weight', '700')
+    .style('letter-spacing', '.22em').style('font-family', 'JetBrains Mono,monospace')
+    .text(`BLOWOUT HEDGE SIMULATION — OVER ${maxThr} PTS`);
+
+  // Legend
+  const lx = W + 8;
+  g.append('line').attr('x1', lx).attr('x2', lx + 18).attr('y1', 10).attr('y2', 10).attr('stroke', '#cc4f4f').attr('stroke-width', 2);
+  g.append('text').attr('x', lx + 22).attr('y', 14).style('fill', '#cc4f4f').style('font-size', '8px').style('font-family', 'JetBrains Mono,monospace').text(t1Name);
+  g.append('line').attr('x1', lx).attr('x2', lx + 18).attr('y1', 28).attr('y2', 28).attr('stroke', '#4a78cc').attr('stroke-width', 2);
+  g.append('text').attr('x', lx + 22).attr('y', 32).style('fill', '#4a78cc').style('font-size', '8px').style('font-family', 'JetBrains Mono,monospace').text(t2Name);
 }
 </script>
 </body>
