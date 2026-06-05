@@ -733,28 +733,49 @@ function optimizeBets(budget, minProfitTarget) {
 
 // ── Run ───────────────────────────────────────────────────────────────────────
 function runOptimizer() {
-  if (BRACKETS.length === 0) {
-    alert('Parse a CSV first.');
-    return;
-  }
-  const budget  = parseFloat(document.getElementById('budget').value) || 10;
-  const minProfitRaw = document.getElementById('minProfit').value.trim();
+  if (BRACKETS.length === 0) { alert('Parse a CSV first.'); return; }
+  const budget         = parseFloat(document.getElementById('budget').value) || 10;
+  const minProfitRaw   = document.getElementById('minProfit').value.trim();
   const minProfitTarget = minProfitRaw === '' ? 0 : Number(minProfitRaw);
+
+  // Read blowout inputs from DOM
+  readBlowoutMults();
+  readBlowoutCaps();
+  const blowoutBets  = computeBlowoutBets(budget);
+  const blowoutTotal = Object.values(blowoutBets).reduce((a, b) => a + b, 0);
+  const comboBudget  = Math.max(0, budget - blowoutTotal);
+  // Raise the combo floor by blowoutTotal so real profit (combo profit - blowout drag) meets user's target
+  const effectiveFloor = minProfitTarget + blowoutTotal;
 
   const btn = document.getElementById('optimizeBtn');
   btn.disabled = true;
   btn.textContent = 'SOLVING...';
-  document.getElementById('results').innerHTML = '<div class="placeholder-msg">Running optimizer (100k iterations)...</div>';
+  document.getElementById('results').innerHTML =
+    '<div class="placeholder-msg">Running optimizer (100k iterations)...</div>';
 
   setTimeout(() => {
-    const bets      = optimizeBets(budget, minProfitTarget);
+    const bets      = optimizeBets(comboBudget, effectiveFloor);
     const scenProbs = getProbs();
-    const hedgeable = new Set(getHedgeableScenarios(budget, minProfitTarget).map(s => s.rangeKey));
-    const results   = SCENARIOS.map(s => {
+    const hedgeable = new Set(
+      getHedgeableScenarios(comboBudget, effectiveFloor).map(s => s.rangeKey)
+    );
+
+    const results = SCENARIOS.map(s => {
+      if (s.isBlowout) {
+        const bc = calcBlowoutScenario(blowoutBets, budget, s.team);
+        return { ...s, ...bc, prob: scenProbs[s.rangeKey] || 0, isUnhedgeable: false };
+      }
       const r = calcScenario(bets, s);
-      const isUnhedgeable = !s.isBlowout && !hedgeable.has(s.rangeKey);
-      return { ...s, ...r, prob: scenProbs[s.rangeKey] || 0, isUnhedgeable };
+      const isUnhedgeable = !hedgeable.has(s.rangeKey);
+      // Subtract blowout hedge drag: those bets always lose in non-blowout scenarios
+      return {
+        ...s, ...r,
+        profit: r.profit - blowoutTotal,
+        prob: scenProbs[s.rangeKey] || 0,
+        isUnhedgeable,
+      };
     });
+
     const hedgeResults  = results.filter(r => !r.isBlowout && !r.isUnhedgeable);
     const hedgeProfits  = hedgeResults.map(r => r.profit);
     const ev = results.reduce((sum, r) => sum + r.profit * r.prob, 0);
@@ -764,7 +785,9 @@ function runOptimizer() {
       avg: hedgeProfits.length ? hedgeProfits.reduce((a, b) => a + b, 0) / hedgeProfits.length : 0,
       ev,
     };
-    render(bets, results, stats, budget, minProfitTarget, scenProbs);
+
+    render(bets, results, stats, budget, minProfitTarget, scenProbs, blowoutBets, blowoutTotal);
+    renderCharts(budget, scenProbs, minProfitTarget);
     btn.disabled = false;
     btn.textContent = 'OPTIMIZE';
   }, 30);
@@ -956,7 +979,7 @@ function render(bets, results, stats, budget, minProfitTarget, scenProbs) {
   window.scrollTo({ top: document.getElementById('results').offsetTop - 20, behavior: 'smooth' });
 
   // Draw charts after DOM is set
-  renderCharts(budget, scenProbs);
+  // Note: renderCharts is now called from runOptimizer with minProfitTarget
 }
 
 // ── Charts ────────────────────────────────────────────────────────────────────
@@ -1044,7 +1067,7 @@ function computeChartData(budget, scenProbs) {
   });
 }
 
-function renderCharts(budget, scenProbs) {
+function renderCharts(budget, scenProbs, minProfitTarget) {
   const container = document.getElementById('charts-section');
   if (!container) return;
 
