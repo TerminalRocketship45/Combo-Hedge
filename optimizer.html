@@ -369,14 +369,22 @@ function parseCSV() {
 }
 
 function renderParsedPreview() {
+  const teams = [...new Set(COLS.map(c => c.team))];
+  const lastBrKey = BRACKETS[BRACKETS.length - 1]?.key;
+
   let html = `<table class="preview-table"><thead><tr><th class="left">Win Margin</th>`;
   for (const col of COLS) html += `<th>${col.label}</th>`;
+  for (const team of teams) {
+    const label = team.charAt(0).toUpperCase() + team.slice(1);
+    html += `<th style="color:var(--red)">${label} BLOWOUT</th>`;
+  }
   html += '</tr></thead><tbody>';
+
   for (const br of BRACKETS) {
     html += `<tr><td class="margin-label">${br.label}</td>`;
     for (const col of COLS) {
-      const m = (MULTIPLIERS[br.key] || {})[col.key];
-      const cp = (PRICES[br.key] || {})[col.key];
+      const m  = (MULTIPLIERS[br.key] || {})[col.key];
+      const cp = (PRICES[br.key]      || {})[col.key];
       if (m) {
         const am = cp ? (100 / cp).toFixed(2) : m.toFixed(2);
         const priceLabel = cp ? `$0.${cp.toString().padStart(2,'0')} → ${am}x` : '';
@@ -385,10 +393,43 @@ function renderParsedPreview() {
         html += '<td style="color:var(--dim)">—</td>';
       }
     }
+    // Blowout multiplier inputs — only on the last (highest) row
+    for (const team of teams) {
+      if (br.key === lastBrKey) {
+        const existing = BLOWOUT_MULTS[team] || '';
+        const warnId = `blowout_warn_${team}`;
+        html += `<td>
+          <input type="number" id="blowout_mult_${team}" value="${existing}"
+            min="1.01" step="0.1" placeholder="e.g. 2.5"
+            style="width:72px;background:var(--bg);border:1px solid var(--border);color:var(--text);font-family:var(--font);padding:3px 6px;font-size:.62rem;text-align:right"
+            oninput="readBlowoutMults(); updateBlowoutHints()">
+          <div id="${warnId}" style="font-size:.48rem;color:var(--red);margin-top:2px"></div>
+        </td>`;
+      } else {
+        html += '<td style="color:var(--dim)">—</td>';
+      }
+    }
     html += '</tr>';
   }
   html += '</tbody></table>';
   return html;
+}
+
+function readBlowoutMults() {
+  const teams = [...new Set(COLS.map(c => c.team))];
+  BLOWOUT_MULTS = {};
+  for (const team of teams) {
+    const el = document.getElementById(`blowout_mult_${team}`);
+    if (!el) continue;
+    const val = parseFloat(el.value);
+    const warnEl = document.getElementById(`blowout_warn_${team}`);
+    if (!isNaN(val) && val > 1) {
+      BLOWOUT_MULTS[team] = val;
+      if (warnEl) warnEl.textContent = '';
+    } else if (el.value.trim() !== '') {
+      if (warnEl) warnEl.textContent = 'must be > 1x';
+    }
+  }
 }
 
 // ── Scenario Generation ───────────────────────────────────────────────────────
