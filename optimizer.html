@@ -1121,6 +1121,136 @@ function computeChartData(budget, scenProbs) {
   });
 }
 
+function computeBlowoutChartData(budget, minProfitTarget) {
+  const teams = [...new Set(COLS.map(c => c.team))];
+  if (!Object.values(BLOWOUT_MULTS).some(m => m > 1)) return null;
+
+  const STEPS = 20;
+  const result = {};
+
+  for (let ti = 0; ti < teams.length; ti++) {
+    const sweepTeam = teams[ti];
+    const data = [];
+
+    for (let i = 0; i <= STEPS; i++) {
+      const cap = (budget * i) / STEPS;
+
+      // Temporarily override this team's cap
+      const savedCaps = BLOWOUT_CAPS;
+      BLOWOUT_CAPS = { ...BLOWOUT_CAPS, [sweepTeam]: cap };
+      const bb = computeBlowoutBets(budget);
+      BLOWOUT_CAPS = savedCaps;
+
+      const bt = Object.values(bb).reduce((a, b) => a + b, 0);
+      const cb = Math.max(0, budget - bt);
+      const ef = minProfitTarget + bt;
+
+      const bets   = optimizeFast(cb, ef, 8000);
+      const hScen  = getHedgeableScenarios(cb, ef);
+      const profits = hScen.map(s => calcScenario(bets, s).profit - bt);
+      const minP   = profits.length ? Math.min(...profits) : -budget;
+
+      data.push({ cap, minProfit: minP });
+    }
+    result[sweepTeam] = data;
+  }
+  return { data: result, teams };
+}
+
+function renderBlowoutChart(budget, minProfitTarget) {
+  const canvas = document.getElementById('chart-blowout');
+  if (!canvas) return;
+
+  const chartData = computeBlowoutChartData(budget, minProfitTarget);
+  if (!chartData) {
+    const ctx = canvas.getContext('2d');
+    ctx.clearRect(0, 0, canvas.width, canvas.height);
+    return;
+  }
+
+  canvas.width = canvas.offsetWidth || 300;
+  const W = canvas.width, H = canvas.height;
+  const PAD = { top: 10, right: 60, bottom: 36, left: 46 };
+  const cW = W - PAD.left - PAD.right;
+  const cH = H - PAD.top - PAD.bottom;
+  const ctx = canvas.getContext('2d');
+  ctx.clearRect(0, 0, W, H);
+
+  const teams  = chartData.teams;
+  const colors = ['#5a8ae0', '#f0c040'];
+  const allVals = Object.values(chartData.data).flatMap(d => d.map(p => p.minProfit));
+  const minV  = Math.min(...allVals, 0);
+  const maxV  = Math.max(...allVals, 0);
+  const vRange = maxV - minV || 1;
+  const toX = cap => PAD.left + (cap / budget) * cW;
+  const toY = v   => PAD.top  + (1 - (v - minV) / vRange) * cH;
+
+  // Grid
+  ctx.strokeStyle = '#2a2a3a'; ctx.lineWidth = 1;
+  for (let i = 0; i <= 4; i++) {
+    const y = PAD.top + (i / 4) * cH;
+    ctx.beginPath(); ctx.moveTo(PAD.left, y); ctx.lineTo(PAD.left + cW, y); ctx.stroke();
+    const v = maxV - (i / 4) * vRange;
+    ctx.fillStyle = '#555'; ctx.font = '9px monospace'; ctx.textAlign = 'right';
+    ctx.fillText((v >= 0 ? '+' : '') + v.toFixed(1), PAD.left - 4, y + 3);
+  }
+
+  // Zero line
+  if (minV < 0 && maxV > 0) {
+    const y0 = toY(0);
+    ctx.strokeStyle = '#3a3a4a'; ctx.setLineDash([3, 3]);
+    ctx.beginPath(); ctx.moveTo(PAD.left, y0); ctx.lineTo(PAD.left + cW, y0); ctx.stroke();
+    ctx.setLineDash([]);
+  }
+
+  // Lines per team
+  for (let ti = 0; ti < teams.length; ti++) {
+    const team = teams[ti];
+    const data = chartData.data[team];
+    if (!data) continue;
+    const color = colors[ti % colors.length];
+
+    // Current cap vertical marker
+    const curCap = (BLOWOUT_CAPS[team] !== undefined) ? BLOWOUT_CAPS[team] : budget;
+    if (curCap >= 0 && curCap <= budget) {
+      ctx.strokeStyle = color + '55'; ctx.setLineDash([2, 4]); ctx.lineWidth = 1;
+      ctx.beginPath(); ctx.moveTo(toX(curCap), PAD.top); ctx.lineTo(toX(curCap), PAD.top + cH); ctx.stroke();
+      ctx.setLineDash([]);
+    }
+
+    // Fill under line
+    ctx.fillStyle = color + '18';
+    ctx.beginPath();
+    data.forEach((d, i) => { i === 0 ? ctx.moveTo(toX(d.cap), toY(d.minProfit)) : ctx.lineTo(toX(d.cap), toY(d.minProfit)); });
+    ctx.lineTo(toX(data[data.length - 1].cap), toY(0));
+    ctx.lineTo(toX(data[0].cap), toY(0));
+    ctx.closePath(); ctx.fill();
+
+    // Line
+    ctx.strokeStyle = color; ctx.lineWidth = 2;
+    ctx.beginPath();
+    data.forEach((d, i) => { i === 0 ? ctx.moveTo(toX(d.cap), toY(d.minProfit)) : ctx.lineTo(toX(d.cap), toY(d.minProfit)); });
+    ctx.stroke();
+
+    // Legend label at end of line
+    const last = data[data.length - 1];
+    ctx.fillStyle = color; ctx.font = '9px monospace'; ctx.textAlign = 'left';
+    const teamLabel = team.charAt(0).toUpperCase() + team.slice(1);
+    ctx.fillText(teamLabel, toX(last.cap) + 4, toY(last.minProfit) + 3);
+  }
+
+  // X-axis labels
+  ctx.fillStyle = '#555'; ctx.font = '9px monospace'; ctx.textAlign = 'center';
+  for (const f of [0, budget / 2, budget]) {
+    const x = toX(f);
+    ctx.fillText('$' + f.toFixed(1), x, H - PAD.bottom + 14);
+    ctx.strokeStyle = '#333'; ctx.lineWidth = 1;
+    ctx.beginPath(); ctx.moveTo(x, PAD.top + cH); ctx.lineTo(x, PAD.top + cH + 4); ctx.stroke();
+  }
+  ctx.fillStyle = '#444'; ctx.font = '8px monospace'; ctx.textAlign = 'center';
+  ctx.fillText('max loss if blowout ($)', PAD.left + cW / 2, H - 2);
+}
+
 function renderCharts(budget, scenProbs, minProfitTarget) {
   const container = document.getElementById('charts-section');
   if (!container) return;
@@ -1145,6 +1275,14 @@ function renderCharts(budget, scenProbs, minProfitTarget) {
         <canvas id="${c.id}" height="160" style="width:100%"></canvas>
       </div>`;
     }
+    const hasBlowoutMults = Object.values(BLOWOUT_MULTS).some(m => m > 1);
+    html += `<div style="background:var(--surface);border:1px solid var(--border);border-radius:4px;padding:14px">
+      <div style="font-size:.54rem;letter-spacing:.2em;color:var(--muted);margin-bottom:10px">BLOWOUT CAP vs MIN COMBO PROFIT</div>
+      ${hasBlowoutMults
+        ? `<canvas id="chart-blowout" height="160" style="width:100%"></canvas>`
+        : `<div style="color:#333;font-size:.72rem;text-align:center;margin:40px 0">Enter blowout multipliers above to see this chart.</div>`
+      }
+    </div>`;
     html += '</div>';
     container.innerHTML = html;
 
@@ -1154,6 +1292,7 @@ function renderCharts(budget, scenProbs, minProfitTarget) {
       canvas.width = canvas.offsetWidth || 300;
       drawChart(canvas, data, c.key, c.color, budget);
     }
+    renderBlowoutChart(budget, minProfitTarget);
   }, 50);
 }
 
