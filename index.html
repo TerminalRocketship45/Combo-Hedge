@@ -3,65 +3,41 @@
 <head>
 <meta charset="UTF-8">
 <title>Kalshi Combo Optimizer</title>
-<link rel="preconnect" href="https://fonts.googleapis.com">
-<link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;500;700;800&display=swap" rel="stylesheet">
-<script src="https://d3js.org/d3.v7.min.js"></script>
 <style>
 *,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
 :root{
-  --bg:#06060b;--surface:#0e0e16;--surface2:#0a0a12;--surface3:#12121e;
-  --border:#252535;--border2:#181826;--border3:#1e1e2e;
-  --text:#ddd9ce;--muted:#58586a;--dim:#3a3a4e;
-  --green:#4d9468;--green2:#3a7050;--greenhi:#6ab880;
-  --red:#cc4f4f;--gold:#d4a830;--blue:#4a78cc;
-  --font:'JetBrains Mono','Courier New',monospace;
+  --bg:#0a0a0f;--surface:#111118;--surface2:#0d0d14;
+  --border:#2a2a3a;--border2:#1a1a2a;
+  --text:#e8e4d9;--muted:#666;--dim:#555;
+  --green:#5a9e6f;--red:#e05a5a;--gold:#f0c040;--blue:#5a8ae0;
+  --font:'Courier New',monospace;
 }
-body{background:var(--bg);color:var(--text);font-family:var(--font);font-size:13px;line-height:1.5;padding:28px 24px;max-width:1140px;margin:0 auto}
-h1{font-size:2rem;font-weight:800;letter-spacing:-0.04em;background:linear-gradient(135deg,#ddd9ce 0%,#4d9468 60%,#3a7050 100%);-webkit-background-clip:text;-webkit-text-fill-color:transparent;margin-bottom:5px}
-.header{text-align:center;margin-bottom:32px;padding-bottom:24px;border-bottom:1px solid var(--border2)}
-.header-tag{font-size:.55rem;letter-spacing:.55em;color:var(--green);margin-bottom:8px;opacity:.8}
-.header-sub{font-size:.6rem;color:var(--dim);letter-spacing:.12em}
+body{background:var(--bg);color:var(--text);font-family:var(--font);font-size:13px;line-height:1.5;padding:24px;max-width:1100px;margin:0 auto}
+h1{font-size:1.9rem;font-weight:900;letter-spacing:-0.03em;background:linear-gradient(135deg,#e8e4d9 0%,#5a9e6f 100%);-webkit-background-clip:text;-webkit-text-fill-color:transparent;margin-bottom:4px}
+.header{text-align:center;margin-bottom:28px}
+.header-tag{font-size:.6rem;letter-spacing:.5em;color:var(--green);margin-bottom:6px}
+.header-sub{font-size:.65rem;color:var(--dim);letter-spacing:.1em}
 
-/* Sections */
-.section{background:var(--surface);border:1px solid var(--border);padding:20px;margin-bottom:14px;border-radius:3px;border-left:2px solid var(--green2)}
-.section-title{font-size:.52rem;letter-spacing:.38em;color:var(--green);text-transform:uppercase;margin-bottom:14px;padding-bottom:8px;border-bottom:1px solid var(--border2)}
+/* CSV section */
+.section{background:var(--surface);border:1px solid var(--border);padding:18px;margin-bottom:16px;border-radius:4px}
+.section-title{font-size:.58rem;letter-spacing:.3em;color:var(--green);text-transform:uppercase;margin-bottom:12px}
 textarea{width:100%;background:var(--bg);border:1px solid var(--border);color:var(--text);font-family:var(--font);font-size:11px;padding:10px;resize:vertical;outline:none;min-height:110px}
 textarea:focus{border-color:var(--green)}
-.btn{background:linear-gradient(160deg,var(--green2),var(--green));border:none;border-radius:2px;color:#e8e4d9;font-size:.68rem;font-weight:700;letter-spacing:.25em;padding:.6rem 1.3rem;cursor:pointer;font-family:var(--font);transition:opacity .15s,box-shadow .15s;box-shadow:0 2px 12px rgba(74,148,104,.15)}
-.btn:hover{opacity:.88;box-shadow:0 2px 18px rgba(74,148,104,.28)}
-.btn:disabled{background:#1e2e1e;cursor:not-allowed;opacity:.45;box-shadow:none}
-.btn-outline{background:transparent;border:1px solid var(--border);color:var(--muted);box-shadow:none}
-.btn-outline:hover{border-color:var(--green);color:var(--green);opacity:1}
+.btn{background:linear-gradient(135deg,#3a7a50,#5a9e6f);border:none;border-radius:4px;color:var(--text);font-size:.72rem;font-weight:700;letter-spacing:.2em;padding:.65rem 1.2rem;cursor:pointer;font-family:var(--font)}
+.btn:disabled{background:#2a3a2a;cursor:not-allowed;opacity:.6}
+.btn-outline{background:transparent;border:1px solid var(--border);color:var(--muted)}
+.btn-outline:hover{border-color:var(--green);color:var(--green)}
 .row{display:flex;gap:12px;flex-wrap:wrap;align-items:flex-end}
 .col{flex:1;min-width:140px}
-label{font-size:.52rem;letter-spacing:.28em;color:var(--green);display:block;margin-bottom:7px;text-transform:uppercase}
+label{font-size:.58rem;letter-spacing:.25em;color:var(--green);display:block;margin-bottom:6px;text-transform:uppercase}
 label.red{color:var(--red)}
-input[type=number]{width:100%;background:var(--bg);border:1px solid var(--border);border-radius:2px;color:var(--text);font-size:1rem;font-family:var(--font);font-weight:700;padding:.45rem .7rem;outline:none;transition:border-color .15s}
+input[type=number]{width:100%;background:var(--bg);border:1px solid var(--border);border-radius:4px;color:var(--text);font-size:1.1rem;font-family:var(--font);font-weight:700;padding:.45rem .7rem;outline:none}
 input[type=number]:focus{border-color:var(--green)}
-.hint{font-size:.54rem;color:var(--dim);margin-top:4px}
-
-/* Multiplier input table */
-.mult-table{width:100%;border-collapse:collapse;font-size:.68rem}
-.mult-table th{background:var(--surface2);color:var(--muted);font-size:.5rem;letter-spacing:.18em;padding:8px 10px;border:1px solid var(--border);font-weight:500;text-align:center}
-.mult-table th.th-left{text-align:left}
-.mult-table td{border:1px solid var(--border2)}
-.mult-input{width:100%;background:transparent;border:none;color:var(--greenhi);font-family:var(--font);font-size:.78rem;font-weight:700;padding:7px 10px;text-align:center;outline:none;transition:background .12s}
-.mult-input:focus{background:rgba(74,148,104,.07)}
-.mult-input::placeholder{color:var(--dim);font-weight:400}
-.threshold-cell{padding:6px 10px;display:flex;align-items:center;gap:5px;color:var(--muted);font-size:.6rem;letter-spacing:.1em;white-space:nowrap}
-.threshold-input{background:transparent;border:none;border-bottom:1px solid var(--border);color:var(--text);font-family:var(--font);font-size:.82rem;font-weight:700;padding:2px 4px;width:56px;outline:none;text-align:right}
-.threshold-input:focus{border-bottom-color:var(--green)}
-.del-row{background:none;border:none;color:var(--dim);cursor:pointer;font-size:.95rem;padding:4px 8px;font-family:var(--font);transition:color .12s;line-height:1}
-.del-row:hover{color:var(--red)}
-.team-name-input{background:var(--bg);border:1px solid var(--border);color:var(--text);font-family:var(--font);font-size:.9rem;font-weight:700;padding:5px 10px;width:150px;outline:none;border-radius:2px;transition:border-color .15s}
-.team-name-input:focus{border-color:var(--green)}
-.file-import-btn{display:inline-flex;align-items:center;gap:6px;background:transparent;border:1px solid var(--border);color:var(--muted);font-size:.58rem;letter-spacing:.18em;padding:.42rem 1rem;cursor:pointer;font-family:var(--font);transition:all .15s;border-radius:2px;text-transform:uppercase}
-.file-import-btn:hover{border-color:var(--green);color:var(--green)}
-.col-header-inner{font-size:.5rem;letter-spacing:.14em}
+.hint{font-size:.56rem;color:var(--dim);margin-top:4px}
 
 /* Parsed preview */
 .preview-table{width:100%;border-collapse:collapse;font-size:.68rem;margin-top:10px}
-.preview-table th{background:var(--surface2);color:var(--muted);font-weight:normal;font-size:.52rem;letter-spacing:.1em;padding:6px 10px;border:1px solid var(--border)}
+.preview-table th{background:var(--surface2);color:var(--muted);font-weight:normal;font-size:.56rem;letter-spacing:.1em;padding:6px 10px;border:1px solid var(--border)}
 .preview-table td{padding:6px 10px;border:1px solid var(--border2);text-align:center}
 .preview-table td.mult{color:var(--green);font-weight:700}
 .preview-table td.margin-label{color:var(--muted);text-align:left}
@@ -71,70 +47,59 @@ input[type=number]:focus{border-color:var(--green)}
 
 /* Stats */
 .stats-row{display:grid;grid-template-columns:repeat(4,1fr);gap:8px;margin-bottom:16px}
-.stat{background:var(--surface);border:1px solid var(--border);padding:13px 10px;border-radius:3px;text-align:center}
-.stat.gold{background:#110f00;border-color:#3a3000}
-.stat-label{font-size:.44rem;letter-spacing:.15em;color:var(--muted);margin-bottom:6px;text-transform:uppercase}
-.stat-value{font-size:1.1rem;font-weight:800}
+.stat{background:var(--surface);border:1px solid var(--border);padding:12px 10px;border-radius:4px;text-align:center}
+.stat.gold{background:#1a1800;border-color:#5a4a00}
+.stat-label{font-size:.48rem;letter-spacing:.12em;color:var(--muted);margin-bottom:5px;text-transform:uppercase}
+.stat-value{font-size:1.1rem;font-weight:900}
 .pos{color:var(--green)}.neg{color:var(--red)}.gold-text{color:var(--gold)}
 
 /* Allocation table */
 .alloc-wrap{overflow-x:auto;margin-bottom:20px}
 .alloc-table{width:100%;border-collapse:collapse;font-size:.72rem;min-width:460px}
-.alloc-table th{padding:8px 10px;text-align:center;font-size:.5rem;letter-spacing:.12em;color:var(--muted);border-bottom:1px solid var(--border);font-weight:normal}
+.alloc-table th{padding:8px 10px;text-align:center;font-size:.56rem;letter-spacing:.1em;color:var(--muted);border-bottom:1px solid var(--border);font-weight:normal}
 .alloc-table th.left{text-align:left}
 .alloc-table td{padding:9px 10px;text-align:center;border-bottom:1px solid var(--border2)}
 .alloc-table td.margin-col{text-align:left;color:var(--green);font-weight:700}
 .bet-amount{font-weight:700;font-size:.85rem}
-.bet-mult{font-size:.5rem;color:var(--dim);margin-top:2px}
+.bet-mult{font-size:.52rem;color:var(--dim);margin-top:2px}
 
 /* Scenario grid */
 .scenario-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(220px,1fr));gap:8px;margin-bottom:24px}
-.scenario-card{background:var(--surface);border:1px solid var(--border);border-radius:3px;padding:13px;cursor:pointer;transition:border-color .15s,background .15s}
-.scenario-card:hover{border-color:var(--green);background:var(--surface3)}
-.scenario-card.best{background:#0a180a;border-color:#1a4a1a}
-.scenario-card.worst{background:#160d06;border-color:#4a3010}
-.sc-team{font-size:.48rem;color:var(--muted);letter-spacing:.12em;margin-bottom:3px}
-.sc-range{font-size:.74rem;font-weight:700}
-.sc-prob{font-size:.5rem;color:var(--gold)}
-.sc-profit{font-size:1.05rem;font-weight:800}
-.sc-ev{font-size:.48rem;color:#666}
-.sc-hint{font-size:.46rem;color:var(--dim);margin-top:4px;text-align:right}
+.scenario-card{background:var(--surface);border:1px solid var(--border);border-radius:4px;padding:13px;cursor:pointer;transition:border-color .15s}
+.scenario-card:hover{border-color:var(--green)}
+.scenario-card.best{background:#0d1a0d;border-color:#1a5a1a}
+.scenario-card.worst{background:#1a1008;border-color:#5a4010}
+.sc-team{font-size:.52rem;color:var(--muted);letter-spacing:.1em;margin-bottom:3px}
+.sc-range{font-size:.75rem;font-weight:700}
+.sc-prob{font-size:.52rem;color:var(--gold)}
+.sc-profit{font-size:1.05rem;font-weight:900}
+.sc-ev{font-size:.5rem;color:#888}
+.sc-hint{font-size:.48rem;color:var(--dim);margin-top:4px;text-align:right}
 .sc-detail{display:none;margin-top:10px;border-top:1px solid var(--border);padding-top:10px}
 .scenario-card.expanded .sc-detail{display:block}
-.detail-label{font-size:.52rem;letter-spacing:.2em;text-transform:uppercase;margin:8px 0 4px}
+.detail-label{font-size:.56rem;letter-spacing:.2em;text-transform:uppercase;margin:8px 0 4px}
 .detail-label.green{color:var(--green)}.detail-label.red{color:var(--red)}
-.detail-row{display:flex;justify-content:space-between;font-size:.6rem;padding:2px 0}
+.detail-row{display:flex;justify-content:space-between;font-size:.62rem;padding:2px 0}
 .detail-row .dr-l{color:var(--muted)}.detail-row .dr-r{color:var(--text)}
-.detail-row .dr-r.pos{color:#7acc90}.detail-row .dr-r.neg{color:#cc8080}
-.net-line{display:flex;justify-content:space-between;font-size:.7rem;font-weight:700;border-top:1px solid var(--border);margin-top:8px;padding-top:6px}
+.detail-row .dr-r.pos{color:#a0e0b0}.detail-row .dr-r.neg{color:#e09090}
+.net-line{display:flex;justify-content:space-between;font-size:.72rem;font-weight:700;border-top:1px solid var(--border);margin-top:8px;padding-top:6px}
 
 /* Prob section */
-.prob-toggle{background:var(--surface2);border:1px solid var(--border);padding:8px 14px;margin-bottom:14px;cursor:pointer;font-size:.54rem;letter-spacing:.2em;color:var(--muted);display:flex;justify-content:space-between;align-items:center;transition:border-color .15s}
+.prob-toggle{background:var(--surface2);border:1px solid var(--border);padding:8px 14px;margin-bottom:14px;cursor:pointer;font-size:.58rem;letter-spacing:.2em;color:var(--muted);display:flex;justify-content:space-between;align-items:center}
 .prob-toggle:hover{border-color:var(--green);color:var(--green)}
 .prob-section{display:none}
 .prob-section.open{display:block}
 .prob-grid{display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-bottom:10px}
-.prob-input-row{display:flex;justify-content:space-between;align-items:center;margin-bottom:6px;font-size:.6rem}
-.prob-input-row input{width:70px;background:var(--bg);border:1px solid var(--border);color:var(--text);font-family:var(--font);padding:3px 6px;font-size:.6rem;text-align:right}
-.prob-note{font-size:.52rem;color:var(--dim);margin-top:6px}
+.prob-input-row{display:flex;justify-content:space-between;align-items:center;margin-bottom:6px;font-size:.62rem}
+.prob-input-row input{width:70px;background:var(--bg);border:1px solid var(--border);color:var(--text);font-family:var(--font);padding:3px 6px;font-size:.62rem;text-align:right}
+.prob-note{font-size:.54rem;color:var(--dim);margin-top:6px}
 
-.tag{font-size:.46rem;padding:2px 5px;letter-spacing:.08em;vertical-align:middle}
+.tag{font-size:.48rem;padding:2px 5px;letter-spacing:.08em;vertical-align:middle}
 .tag-calc{background:#1a1500;color:var(--gold)}
 .tag-live{background:#0a1a0a;color:var(--green)}
-.placeholder-msg{text-align:center;color:#2a2a3a;margin:40px 0;font-size:.85rem}
-.error-box{background:#140606;border:1px solid #3a1212;color:#a06060;padding:10px 14px;font-size:.6rem;margin-bottom:12px;line-height:1.7}
-.success-box{background:#060e06;border:1px solid #1a3a1a;color:#60a070;padding:10px 14px;font-size:.6rem;margin-bottom:12px}
-
-/* D3 Sensitivity Charts */
-.chart-section{margin-top:24px}
-.chart-grid{display:grid;grid-template-columns:1fr 1fr;gap:14px;margin-top:14px}
-.chart-wrap{background:var(--surface);border:1px solid var(--border);border-radius:3px;padding:16px 12px 10px}
-.chart-container svg{display:block;width:100%;overflow:visible}
-.chart-computing{pointer-events:none;opacity:.5}
-.clear-pts-btn{background:transparent;border:1px solid var(--border2);color:var(--dim);font-size:.5rem;letter-spacing:.1em;padding:3px 10px;cursor:pointer;font-family:var(--font);transition:all .15s;border-radius:2px;text-transform:uppercase}
-.clear-pts-btn:hover{border-color:var(--red);color:var(--red)}
-.d3-axis text{font-family:var(--font);font-size:9px;fill:var(--muted)}
-.d3-axis line,.d3-axis path{stroke:var(--border)}
+.placeholder-msg{text-align:center;color:#333;margin:40px 0;font-size:.85rem}
+.error-box{background:#1a0808;border:1px solid #5a1818;color:#c08080;padding:10px 14px;font-size:.62rem;margin-bottom:12px;line-height:1.6}
+.success-box{background:#081a08;border:1px solid #1a5a1a;color:#80c080;padding:10px 14px;font-size:.62rem;margin-bottom:12px}
 </style>
 </head>
 <body>
@@ -142,62 +107,27 @@ input[type=number]:focus{border-color:var(--green)}
 <div class="header">
   <div class="header-tag">KALSHI COMBO</div>
   <h1>PROFIT MAXIMIZER</h1>
-  <div class="header-sub" id="headerSub">COMBO BET &bull; CSV-DRIVEN OPTIMIZER</div>
+  <div class="header-sub">SPURS vs KNICKS &bull; CSV-DRIVEN OPTIMIZER</div>
 </div>
 
-<!-- Step 1: Data Entry -->
+<!-- Step 1: CSV Input -->
 <div class="section">
-  <div class="section-title">Step 1 — Combo Multipliers</div>
-
-  <!-- Hidden textarea: legacy parseCSV() reads from this -->
-  <textarea id="csvInput" style="display:none"></textarea>
+  <div class="section-title">Step 1 — Paste Multiplier CSV</div>
+  <div style="font-size:.6rem;color:var(--muted);margin-bottom:8px;line-height:1.7">
+    Paste your CSV directly from the spreadsheet. First data row = column headers (Win Margin, Spurs + over, ...).
+    Subsequent rows = margin thresholds (Under 4.5, Under 10.5, ...) with multipliers like <span style="color:var(--green)">14.8x</span>.
+    Add as many margin rows as you like.
+  </div>
+  <textarea id="csvInput" spellcheck="false" placeholder="Paste CSV here...
+Win Margin,Spurs + over ,Spurs + under ,Knicks + over,Knicks + under
+Under 4.5,14.8x,17.3x,15.8x,19.9x
+Under 10.5,5.1x,6x,7.3x,8.6x
+Under 20.5,3.7x,4.1x,5.3x,5.6x"></textarea>
+  <div style="margin-top:10px">
+    <button class="btn" onclick="parseCSV()">PARSE CSV</button>
+  </div>
   <div id="parseStatus"></div>
   <div id="parsedPreview"></div>
-
-  <!-- File import -->
-  <div style="display:flex;align-items:center;gap:12px;margin-bottom:18px">
-    <label for="csvFileInput" class="file-import-btn">
-      <svg width="12" height="12" viewBox="0 0 12 12" fill="none" style="flex-shrink:0"><path d="M2 9h8M6 1v6M3.5 4.5L6 1.5l2.5 3" stroke="currentColor" stroke-width="1.2" stroke-linecap="round" stroke-linejoin="round"/></svg>
-      Import CSV File
-    </label>
-    <input type="file" id="csvFileInput" accept=".csv" style="display:none" onchange="loadFromFile(this)">
-    <span id="importedFileName" style="font-size:.56rem;color:var(--dim)">or fill the table below — default example loaded</span>
-  </div>
-
-  <!-- Team name inputs -->
-  <div style="display:flex;align-items:center;gap:20px;margin-bottom:14px;flex-wrap:wrap">
-    <div style="display:flex;align-items:center;gap:8px">
-      <span style="font-size:.5rem;letter-spacing:.2em;color:var(--muted)">TEAM 1</span>
-      <input type="text" id="team1Name" class="team-name-input" value="Spurs" oninput="updateColumnHeaders()" placeholder="e.g. Spurs">
-    </div>
-    <div style="display:flex;align-items:center;gap:8px">
-      <span style="font-size:.5rem;letter-spacing:.2em;color:var(--muted)">TEAM 2</span>
-      <input type="text" id="team2Name" class="team-name-input" value="Knicks" oninput="updateColumnHeaders()" placeholder="e.g. Knicks">
-    </div>
-    <span style="font-size:.5rem;color:var(--dim)">← Column headers update automatically</span>
-  </div>
-
-  <!-- Multiplier table -->
-  <div style="overflow-x:auto">
-    <table class="mult-table">
-      <thead>
-        <tr>
-          <th class="th-left" style="min-width:120px">WIN MARGIN</th>
-          <th id="colH0"><span class="col-header-inner">SPURS OVER</span></th>
-          <th id="colH1"><span class="col-header-inner">SPURS UNDER</span></th>
-          <th id="colH2"><span class="col-header-inner">KNICKS OVER</span></th>
-          <th id="colH3"><span class="col-header-inner">KNICKS UNDER</span></th>
-          <th style="width:36px"></th>
-        </tr>
-      </thead>
-      <tbody id="multTableBody"></tbody>
-    </table>
-  </div>
-
-  <div style="display:flex;justify-content:space-between;align-items:center;margin-top:12px">
-    <button class="btn btn-outline" style="font-size:.58rem;padding:.38rem 1rem" onclick="addTableRow()">+ Add Row</button>
-    <button class="btn" onclick="parseFromTable()" id="parseBtn">PARSE ›</button>
-  </div>
 </div>
 
 <!-- Step 2: Settings -->
@@ -211,18 +141,27 @@ input[type=number]:focus{border-color:var(--green)}
   </div>
   <div class="prob-section" id="probSection">
     <div class="prob-grid">
-      <div id="winnerProbInputs">
+      <div>
         <div style="font-size:.56rem;color:var(--muted);margin-bottom:6px">WINNER PROB</div>
-        <div style="font-size:.54rem;color:var(--dim)">Parse your CSV first</div>
+        <div class="prob-input-row"><span>Spurs win</span><span><input type="number" id="pSpursWin" value="0.63" min="0" max="1" step="0.01"> %</span></div>
+        <div class="prob-input-row"><span>Knicks win</span><span><input type="number" id="pKnicksWin" value="0.37" min="0" max="1" step="0.01"> %</span></div>
       </div>
       <div>
         <div style="font-size:.56rem;color:var(--muted);margin-bottom:6px">TOTAL PROB</div>
-        <div class="prob-input-row"><span>Over</span><span><input type="number" id="pOver" value="0.54" min="0" max="1" step="0.01"> %</span></div>
-        <div class="prob-input-row"><span>Under</span><span><input type="number" id="pUnder" value="0.46" min="0" max="1" step="0.01"> %</span></div>
+        <div class="prob-input-row"><span>Over 217.5</span><span><input type="number" id="pOver" value="0.54" min="0" max="1" step="0.01"> %</span></div>
+        <div class="prob-input-row"><span>Under 217.5</span><span><input type="number" id="pUnder" value="0.46" min="0" max="1" step="0.01"> %</span></div>
       </div>
     </div>
     <div id="marginProbInputs"></div>
     <div class="prob-note">Probabilities are only used to calculate Expected Value for display. Bet allocations are not affected.</div>
+    <div style="margin-top:12px;padding-top:10px;border-top:1px solid var(--border)">
+      <div style="font-size:.56rem;color:var(--muted);margin-bottom:6px">LOAD FROM KALSHI API — run <code style="color:var(--green)">python fetch_probs.py</code> then paste the JSON output here</div>
+      <div style="display:flex;gap:8px;align-items:flex-start">
+        <textarea id="probJson" rows="2" style="flex:1;background:var(--bg);border:1px solid var(--border);color:var(--text);font-family:var(--font);font-size:10px;padding:6px;resize:none" placeholder='{"p_spurs_win":0.63,"p_knicks_win":0.37,...}'></textarea>
+        <button class="btn btn-outline" onclick="loadProbJson()" style="white-space:nowrap;font-size:.6rem;padding:.4rem .8rem">LOAD</button>
+      </div>
+      <div id="probLoadStatus" style="font-size:.56rem;margin-top:4px"></div>
+    </div>
   </div>
 
   <div class="row" style="margin-top:14px">
@@ -234,56 +173,22 @@ input[type=number]:focus{border-color:var(--green)}
       <label style="color:var(--green)">Min Guaranteed Profit ($)</label>
       <input type="number" id="minProfit" value="0" step="0.5">
     </div>
-    <div class="col">
-      <label>Guarantee up to margin (pts)</label>
-      <input type="number" id="blowoutAt" placeholder="auto" step="0.5" min="0">
-    </div>
-    <div class="col">
-      <label>Iterations</label>
-      <input type="number" id="iterations" value="100000" min="1000" step="10000">
-    </div>
     <div class="col" style="flex:0 0 auto">
       <label style="visibility:hidden">.</label>
       <button class="btn" id="optimizeBtn" onclick="runOptimizer()">OPTIMIZE</button>
     </div>
   </div>
+  <div id="blowoutCapRow" class="row" style="margin-top:10px"></div>
+  <div id="blowoutClampWarn" style="display:none;font-size:.56rem;color:var(--red);margin-top:4px">
+    ⚠ Blowout hedge targets exceed budget — stakes scaled down proportionally.
+  </div>
 </div>
 
 <!-- Results -->
 <div id="results"></div>
+<div id="charts-section"></div>
 
-<div class="placeholder-msg" id="placeholder">Fill the multiplier table above and click PARSE › to begin.</div>
-
-<!-- Sensitivity Analysis Charts -->
-<div id="chartSection" style="display:none">
-  <div class="section" style="border-left-color:var(--gold)">
-    <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:4px">
-      <div class="section-title" style="margin-bottom:0;color:var(--gold)">Sensitivity Analysis — Min Guaranteed Profit vs Outcomes</div>
-      <button class="clear-pts-btn" onclick="clearAllCharts()">CLEAR</button>
-    </div>
-    <div style="font-size:.54rem;color:var(--dim);margin-bottom:16px;line-height:1.7">
-      Click anywhere on any chart to run the optimizer at that min-profit level. All four charts update simultaneously.
-      X-axis: <strong style="color:var(--text)">−budget → +budget</strong>. Each click takes ~1 second to compute.
-    </div>
-    <div class="chart-grid">
-      <div class="chart-wrap" id="wrap-worst">
-        <div id="chart-worst" class="chart-container"></div>
-      </div>
-      <div class="chart-wrap" id="wrap-avg">
-        <div id="chart-avg" class="chart-container"></div>
-      </div>
-      <div class="chart-wrap" id="wrap-best">
-        <div id="chart-best" class="chart-container"></div>
-      </div>
-      <div class="chart-wrap" id="wrap-ev">
-        <div id="chart-ev" class="chart-container"></div>
-      </div>
-    </div>
-    <div style="font-size:.5rem;color:var(--dim);margin-top:10px;text-align:center">
-      Worst / Avg / Best exclude blowout scenarios. EV includes all scenarios weighted by probability.
-    </div>
-  </div>
-</div>
+<div class="placeholder-msg" id="placeholder">Paste your CSV above and click PARSE CSV to begin.</div>
 
 <script>
 // ── State ─────────────────────────────────────────────────────────────────────
@@ -292,14 +197,14 @@ let COLS = [];       // [{key, label, team, total}]
 let MULTIPLIERS = {}; // {bracketKey: {colKey: float}}  — CSV (theoretical) multipliers
 let PRICES = {};     // {bracketKey: {colKey: int}}     — Kalshi price in whole cents ($0.01 snap)
 let SCENARIOS = [];  // [{team, total, lo, hi, rangeKey, isBlowout, isUnhedgeable}]
-let BLOWOUT_AT = Infinity; // guarantee boundary set at optimize-time
+let BLOWOUT_MULTS = {};  // { team_key: float }  raw multiplier entered by user
+let BLOWOUT_CAPS  = {};  // { team_key: float }  max loss if that team blows out
 
 // ── Kalshi Rounding ───────────────────────────────────────────────────────────
-// Kalshi prices are in $0.01 steps (nearest cent).
-// Contracts are INTEGERS — Kalshi floors to whole contracts for combo markets.
-// e.g. $1.81 at $0.33/contract → floor(181/33) = 5 contracts
-//   → Kalshi charges 5 × $0.33 = $1.65 and returns $0.16 unspent.
-//   → Payout if wins: 5 × $1.00 = $5.00 (not $5.48 — no fractional contracts).
+// Kalshi prices are in $0.01 steps. The CSV multiplier 1/price may not land on
+// a whole cent, so the actual fill price is rounded to nearest cent.
+// Payout = floor(stake / priceUSD × 100) / 100  (fractional contracts, 2 dp)
+// actual_cost = round(payout × priceUSD, 2)  — what Kalshi actually charges
 
 function csvMultToPrice(mult) {
   // Returns price in whole cents (integer). Minimum 1 cent.
@@ -307,21 +212,16 @@ function csvMultToPrice(mult) {
   return Math.max(1, Math.round(100 / mult));
 }
 
-function kalshiContracts(stakeUSD, centsPrice) {
-  // Whole-number contracts Kalshi will fill (integer floor).
-  if (centsPrice <= 0) return 0;
-  return Math.floor(stakeUSD * 100 / centsPrice);
-}
-
 function kalshiPayout(stakeUSD, centsPrice) {
-  // Gross payout in dollars if this bet wins (integer contracts × $1.00).
-  return kalshiContracts(stakeUSD, centsPrice);
+  // Gross payout in dollars if this bet wins (= number of contracts × $1.00)
+  if (centsPrice <= 0) return 0;
+  return Math.floor(stakeUSD * 10000 / centsPrice) / 100;
 }
 
 function kalshiCost(stakeUSD, centsPrice) {
-  // Actual dollars Kalshi charges = integer contracts × price.
-  // Always ≤ stakeUSD. The difference is returned to you unspent.
-  return kalshiContracts(stakeUSD, centsPrice) * centsPrice / 100;
+  // Actual dollars Kalshi charges (≤ stakeUSD due to floor on contracts)
+  const payout = kalshiPayout(stakeUSD, centsPrice);
+  return Math.round(payout * centsPrice) / 100;
 }
 
 function actualMult(centsPrice) {
@@ -339,6 +239,32 @@ function computePrices() {
   }
 }
 
+function computeBlowoutBets(budget) {
+  const bets = {};
+  const teams = [...new Set(COLS.map(c => c.team))];
+  for (const team of teams) {
+    const M   = BLOWOUT_MULTS[team] || 0;
+    const cap = (BLOWOUT_CAPS[team] !== undefined) ? BLOWOUT_CAPS[team] : budget;
+    if (M <= 1 || cap >= budget) { bets[team] = 0; continue; }
+    bets[team] = (budget - cap) / M;
+  }
+  // Safety: clamp so total blowout bets never exceed budget
+  const total = Object.values(bets).reduce((a, b) => a + b, 0);
+  if (total > budget && total > 0) {
+    const scale = budget / total;
+    for (const t of Object.keys(bets)) bets[t] *= scale;
+  }
+  return bets;
+}
+
+function calcBlowoutScenario(blowoutBets, budget, winningTeam) {
+  const M     = BLOWOUT_MULTS[winningTeam] || 0;
+  const stake = blowoutBets[winningTeam]   || 0;
+  const cp    = csvMultToPrice(M);
+  const payout = (stake > 0 && M > 1) ? kalshiPayout(stake, cp) : 0;
+  return { profit: payout - budget, payout, stake, mult: M, centsPrice: cp };
+}
+
 // ── CSV Parsing ───────────────────────────────────────────────────────────────
 function parseCSV() {
   const raw = document.getElementById('csvInput').value.trim();
@@ -353,36 +279,36 @@ function parseCSV() {
 
   const rows = raw.split('\n').map(r => r.split(',').map(c => c.trim()));
 
-  // Find header row: first row that has at least 2 data columns containing "over" or "under"
+  // Find header row: first row where cells[1..] look like team+total names
   let headerRow = -1;
   for (let i = 0; i < rows.length; i++) {
     const cells = rows[i];
-    const joined = cells.slice(1).join(' ').toLowerCase();
-    if (cells.length >= 3 && /\bover\b/i.test(joined) && /\bunder\b/i.test(joined)) {
+    if (cells.length >= 3 && /spurs|knicks/i.test(cells.slice(1).join(' '))) {
       headerRow = i;
       break;
     }
   }
   if (headerRow === -1) {
-    statusEl.innerHTML = '<div class="error-box">Could not find header row. Expected columns like "Miami + over", "Washington + under".</div>';
+    statusEl.innerHTML = '<div class="error-box">Could not find header row. Expected row with "Spurs" and "Knicks" column names.</div>';
     return;
   }
 
   // Parse column headers -> cols
-  // Team name = everything before the "over"/"under" keyword, stripped of punctuation
   const rawCols = rows[headerRow].slice(1).filter(c => c);
   const cols = [];
   for (const raw of rawCols) {
     const norm = raw.toLowerCase().replace(/\s+/g, ' ').trim();
-    const totalMatch = norm.match(/\b(over|under)\b/);
-    if (!totalMatch) continue;
-    const total = totalMatch[1];
-    const team = norm.substring(0, totalMatch.index).replace(/[+&\s]+$/, '').trim();
-    if (!team) continue;
-    cols.push({ key: `${team}_${total}`, label: raw.trim(), team, total });
+    let team = null, total = null;
+    if (/spurs/i.test(norm)) team = 'spurs';
+    else if (/knicks/i.test(norm)) team = 'knicks';
+    if (/\bover\b/i.test(norm)) total = 'over';
+    else if (/\bunder\b/i.test(norm)) total = 'under';
+    if (team && total) {
+      cols.push({ key: `${team}_${total}`, label: raw, team, total });
+    }
   }
   if (cols.length === 0) {
-    statusEl.innerHTML = '<div class="error-box">No valid combo columns found. Expected columns like "Miami + over", "Washington + under".</div>';
+    statusEl.innerHTML = '<div class="error-box">No valid combo columns found. Expected columns like "Spurs + over", "Knicks + under".</div>';
     return;
   }
 
@@ -426,6 +352,7 @@ function parseCSV() {
   BRACKETS = brackets;
   COLS = cols;
   MULTIPLIERS = multipliers;
+  BLOWOUT_MULTS = {};
   computePrices();
   SCENARIOS = buildScenarios();
 
@@ -442,27 +369,48 @@ function parseCSV() {
     : '';
   statusEl.innerHTML = `<div class="success-box">Parsed ${brackets.length} margin rows &times; ${cols.length} combos = ${brackets.length * cols.length} total bets. ${SCENARIOS.length} scenarios.${warnHtml}</div>`;
   previewEl.innerHTML = renderParsedPreview();
+  buildBlowoutCapInputs();
   document.getElementById('settingsSection').style.display = 'block';
   document.getElementById('placeholder').style.display = 'none';
-  // Update header subtitle with actual team names
-  const teams = [...new Set(cols.map(c => c.team))];
-  const teamLabel = teams.map(t => t.charAt(0).toUpperCase() + t.slice(1)).join(' vs ');
-  document.getElementById('headerSub').textContent = `${teamLabel} • CSV-DRIVEN OPTIMIZER`;
 }
 
 function renderParsedPreview() {
+  const teams = [...new Set(COLS.map(c => c.team))];
+  const lastBrKey = BRACKETS[BRACKETS.length - 1]?.key;
+
   let html = `<table class="preview-table"><thead><tr><th class="left">Win Margin</th>`;
   for (const col of COLS) html += `<th>${col.label}</th>`;
+  for (const team of teams) {
+    const label = team.charAt(0).toUpperCase() + team.slice(1);
+    html += `<th style="color:var(--red)">${label} BLOWOUT</th>`;
+  }
   html += '</tr></thead><tbody>';
+
   for (const br of BRACKETS) {
     html += `<tr><td class="margin-label">${br.label}</td>`;
     for (const col of COLS) {
-      const m = (MULTIPLIERS[br.key] || {})[col.key];
-      const cp = (PRICES[br.key] || {})[col.key];
+      const m  = (MULTIPLIERS[br.key] || {})[col.key];
+      const cp = (PRICES[br.key]      || {})[col.key];
       if (m) {
         const am = cp ? (100 / cp).toFixed(2) : m.toFixed(2);
         const priceLabel = cp ? `$0.${cp.toString().padStart(2,'0')} → ${am}x` : '';
         html += `<td class="mult" title="${priceLabel}">${m}x<div style="font-size:.48rem;color:var(--dim)">${priceLabel}</div></td>`;
+      } else {
+        html += '<td style="color:var(--dim)">—</td>';
+      }
+    }
+    // Blowout multiplier inputs — only on the last (highest) row
+    for (const team of teams) {
+      if (br.key === lastBrKey) {
+        const existing = BLOWOUT_MULTS[team] || '';
+        const warnId = `blowout_warn_${team}`;
+        html += `<td>
+          <input type="number" id="blowout_mult_${team}" value="${existing}"
+            min="1.01" step="0.1" placeholder="e.g. 2.5"
+            style="width:72px;background:var(--bg);border:1px solid var(--border);color:var(--text);font-family:var(--font);padding:3px 6px;font-size:.62rem;text-align:right"
+            oninput="readBlowoutMults(); updateBlowoutHints()">
+          <div id="${warnId}" style="font-size:.48rem;color:var(--red);margin-top:2px"></div>
+        </td>`;
       } else {
         html += '<td style="color:var(--dim)">—</td>';
       }
@@ -473,41 +421,110 @@ function renderParsedPreview() {
   return html;
 }
 
+function readBlowoutMults() {
+  const teams = [...new Set(COLS.map(c => c.team))];
+  BLOWOUT_MULTS = {};
+  for (const team of teams) {
+    const el = document.getElementById(`blowout_mult_${team}`);
+    if (!el) continue;
+    const val = parseFloat(el.value);
+    const warnEl = document.getElementById(`blowout_warn_${team}`);
+    if (!isNaN(val) && val > 1) {
+      BLOWOUT_MULTS[team] = val;
+      if (warnEl) warnEl.textContent = '';
+    } else if (el.value.trim() !== '') {
+      if (warnEl) warnEl.textContent = 'must be > 1x';
+    }
+  }
+}
+
+function updateBlowoutHints() {
+  const budget = parseFloat(document.getElementById('budget').value) || 10;
+  readBlowoutMults();
+  readBlowoutCaps();
+  const blowoutBets = computeBlowoutBets(budget);
+  const teams = [...new Set(COLS.map(c => c.team))];
+  for (const team of teams) {
+    const hintEl = document.getElementById(`blowout_hint_${team}`);
+    if (!hintEl) continue;
+    const b = blowoutBets[team] || 0;
+    if (b > 0.001) {
+      hintEl.textContent = `$${b.toFixed(2)} reserved for blowout hedge`;
+      hintEl.style.color = 'var(--gold)';
+    } else {
+      hintEl.textContent = 'No hedge active (enter mult above and lower cap)';
+      hintEl.style.color = 'var(--dim)';
+    }
+  }
+  // Show clamp warning if combined blowout bets required more than budget
+  const clampWarn = document.getElementById('blowoutClampWarn');
+  if (clampWarn) {
+    const rawTotal = teams.reduce((sum, team) => {
+      const M   = BLOWOUT_MULTS[team] || 0;
+      const cap = (BLOWOUT_CAPS[team] !== undefined) ? BLOWOUT_CAPS[team] : budget;
+      if (M <= 1 || cap >= budget) return sum;
+      return sum + (budget - cap) / M;
+    }, 0);
+    clampWarn.style.display = rawTotal > budget ? 'block' : 'none';
+  }
+}
+
 // ── Scenario Generation ───────────────────────────────────────────────────────
 function buildScenarios() {
   const thresholds = BRACKETS.map(b => b.threshold);
   const ranges = [];
   let lo = 0;
-  for (const t of thresholds) {
-    ranges.push({ lo, hi: t });
-    lo = t;
-  }
-  const teams = [...new Set(COLS.map(c => c.team))];
+  for (const t of thresholds) { ranges.push({ lo, hi: t }); lo = t; }
   const scenarios = [];
-  for (const team of teams)
+  for (const team of ['spurs', 'knicks'])
     for (const total of ['over', 'under'])
-      for (const { lo, hi } of ranges) {
-        // A scenario is unhedgeable if every paying bet has actual_mult ≤ 1
-        // (1x gross = you get stake back = net 0, you still lose all other bets)
-        const comboKey = `${team}_${total}`;
-        const payingBrackets = BRACKETS.filter(b => b.threshold > lo);
-        const maxActualMult = payingBrackets.length === 0 ? 0 :
-          Math.max(...payingBrackets.map(br => {
-            const cp = (PRICES[br.key] || {})[comboKey] || 100;
-            return 100 / cp;
-          }));
-        const isUnhedgeable = maxActualMult <= 1.0005; // ≤ 1x actual mult = can't profit
-        scenarios.push({ team, total, lo, hi, rangeKey: `${team}_${total}_${lo}to${hi}`,
-                         isBlowout: false, isUnhedgeable });
-      }
-
-  // Blowout scenarios: margin exceeds every threshold — nothing pays, full stake lost
+      for (const { lo, hi } of ranges)
+        scenarios.push({ team, total, lo, hi, rangeKey: `${team}_${total}_${lo}to${hi}`, isBlowout: false });
   const lastThreshold = thresholds[thresholds.length - 1];
-  for (const team of teams)
+  for (const team of ['spurs', 'knicks'])
     for (const total of ['over', 'under'])
       scenarios.push({ team, total, lo: lastThreshold, hi: Infinity,
-                       rangeKey: `${team}_${total}_blowout`, isBlowout: true, isUnhedgeable: true });
+                       rangeKey: `${team}_${total}_blowout`, isBlowout: true });
   return scenarios;
+}
+
+// ── Hedgeability Check ────────────────────────────────────────────────────────
+// A bracket range (lo, hi) is JOINTLY hedgeable at floor F if we can allocate
+// stakes such that every (team,total) scenario in that range hits profit ≥ F.
+//
+// For a range to achieve profit ≥ F in scenario k, we need:
+//   max_am_k × x_k ≥ F + budget  →  x_k ≥ (F+budget)/max_am_k
+// where x_k = stake on the best paying bet for combo k.
+//
+// Summing over all combos: Σ_k x_k ≥ Σ_k (F+budget)/max_am_k
+// But Σ_k x_k ≤ budget (budget constraint), so the condition is:
+//   Σ_k (1/max_am_k) ≤ budget/(F+budget)
+//
+// If F+budget ≤ 0 (floor ≤ −budget), everything is trivially feasible.
+function isRangeHedgeable(lo, budget, floor) {
+  if (floor + budget <= 0) return true;
+  const payingBrs = BRACKETS.filter(b => b.threshold > lo);
+  if (payingBrs.length === 0) return false; // blowout range
+  const threshold = budget / (floor + budget);
+  const sumInvMaxAm = COLS.reduce((sum, col) => {
+    const maxAm = Math.max(...payingBrs.map(br => {
+      const cp = (PRICES[br.key] || {})[col.key] || 100;
+      return 100 / cp;
+    }));
+    return sum + (maxAm > 0 ? 1 / maxAm : Infinity);
+  }, 0);
+  return sumInvMaxAm <= threshold + 1e-9;
+}
+
+function getHedgeableScenarios(budget, floor) {
+  return SCENARIOS.filter(s => {
+    if (s.isBlowout) return false;
+    return isRangeHedgeable(s.lo, budget, floor);
+  });
+}
+
+function getUnhedgeableScenarios(budget, floor) {
+  return SCENARIOS.filter(s => !s.isBlowout && !isRangeHedgeable(s.lo, budget, floor));
 }
 
 function getPayingBrackets(lo, isBlowout) {
@@ -529,7 +546,7 @@ function calcScenario(bets, scenario) {
       const wins = col.key === comboKey && payingSet.has(br.key);
       const csvMult = (MULTIPLIERS[br.key] || {})[col.key] || 1;
       const cp = (PRICES[br.key] || {})[col.key] || 100; // cents price
-      // Kalshi floors to integer contracts; actual cost ≤ stake, difference returned unspent
+      // Kalshi rounds contracts to 2dp, actual cost may be ≤ stake
       const payout = wins ? kalshiPayout(stake, cp) : 0;
       const cost   = kalshiCost(stake, cp); // what Kalshi actually charges
       totalWinnings  += payout;
@@ -546,32 +563,27 @@ function calcScenario(bets, scenario) {
 
 // ── Probability Model ─────────────────────────────────────────────────────────
 function getProbs() {
-  const teams = [...new Set(COLS.map(c => c.team))];
-  const pOver  = parseFloat(document.getElementById('pOver').value)  || 0.54;
-  const pUnder = parseFloat(document.getElementById('pUnder').value) || 0.46;
-  const totalProb = { over: pOver, under: pUnder };
+  const pSpurs  = parseFloat(document.getElementById('pSpursWin').value)  || 0.63;
+  const pKnicks = parseFloat(document.getElementById('pKnicksWin').value) || 0.37;
+  const pOver   = parseFloat(document.getElementById('pOver').value)      || 0.54;
+  const pUnder  = parseFloat(document.getElementById('pUnder').value)     || 0.46;
 
-  // Winner probs: read from dynamically generated inputs
-  const winnerProb = {};
-  const n = teams.length;
-  teams.forEach((team, i) => {
-    const el = document.getElementById(`pWin_${team}`);
-    winnerProb[team] = el ? (parseFloat(el.value) || 1 / n) : 1 / n;
-  });
+  const winnerProb = { spurs: pSpurs, knicks: pKnicks };
+  const totalProb  = { over: pOver, under: pUnder };
 
-  // Cumulative margin probs
-  const cumProbs = {};
-  for (const team of teams) {
-    cumProbs[team] = {};
+  // Read cumulative margin probs for each bracket
+  const cumProbs = { spurs: {}, knicks: {} };
+  for (const team of ['spurs', 'knicks']) {
     for (const br of BRACKETS) {
       const el = document.getElementById(`cum_${team}_${br.key}`);
       cumProbs[team][br.threshold] = el ? parseFloat(el.value) || 0 : 0.5;
     }
   }
 
+  // Compute marginal scenario probs
   const scenarioProbs = {};
   const thresholds = BRACKETS.map(b => b.threshold);
-  for (const team of teams) {
+  for (const team of ['spurs', 'knicks']) {
     let prevCum = 0;
     for (let i = 0; i < thresholds.length; i++) {
       const t = thresholds[i];
@@ -584,6 +596,8 @@ function getProbs() {
         scenarioProbs[key] = winnerProb[team] * totalProb[total] * marginal;
       }
     }
+    // Blowout probability = P(winner wins) × P(wins by > last threshold)
+    // = winnerProb × (1 - lastCumulative)
     const lastCum = cumProbs[team][thresholds[thresholds.length - 1]] || 0;
     const blowoutMarginal = Math.max(0, 1 - lastCum);
     for (const total of ['over', 'under']) {
@@ -594,36 +608,54 @@ function getProbs() {
 }
 
 function buildMarginProbInputs() {
-  const teams = [...new Set(COLS.map(c => c.team))];
-  const n = teams.length;
-
-  // Rebuild winner prob inputs dynamically
-  let winnerHtml = '<div style="font-size:.56rem;color:var(--muted);margin-bottom:6px">WINNER PROB</div>';
-  teams.forEach((team, i) => {
-    const defVal = (1 / n).toFixed(2);
-    winnerHtml += `<div class="prob-input-row">
-      <span>${team.charAt(0).toUpperCase() + team.slice(1)} win</span>
-      <span><input type="number" id="pWin_${team}" value="${defVal}" min="0" max="1" step="0.01"> %</span>
-    </div>`;
-  });
-  document.getElementById('winnerProbInputs').innerHTML = winnerHtml;
-
-  // Build cumulative margin prob inputs
+  // Default cumulative "under X" probs from JSX
+  const defaults = {
+    spurs:  { 4.5: 0.47, 10.5: 0.67, 20.5: 0.79 },
+    knicks: { 4.5: 0.72, 10.5: 0.86, 20.5: 0.95 },
+  };
   let html = '<div style="font-size:.56rem;color:var(--muted);margin-bottom:8px">CUMULATIVE MARGIN PROB (P that winner wins by UNDER threshold)</div>';
-  const cols = Math.min(teams.length, 4);
-  html += `<div style="display:grid;grid-template-columns:repeat(${cols},1fr);gap:8px">`;
-  for (const team of teams) {
+  html += '<div style="display:grid;grid-template-columns:1fr 1fr;gap:8px">';
+  for (const team of ['spurs', 'knicks']) {
     html += `<div><div style="font-size:.56rem;color:var(--green);margin-bottom:5px">${team.toUpperCase()}</div>`;
     for (const br of BRACKETS) {
+      const defVal = (defaults[team] || {})[br.threshold] ?? 0.7;
       html += `<div class="prob-input-row">
         <span>${br.label}</span>
-        <span><input type="number" id="cum_${team}_${br.key}" value="0.70" min="0" max="1" step="0.01"></span>
+        <span><input type="number" id="cum_${team}_${br.key}" value="${defVal}" min="0" max="1" step="0.01"></span>
       </div>`;
     }
     html += '</div>';
   }
   html += '</div>';
   document.getElementById('marginProbInputs').innerHTML = html;
+}
+
+function buildBlowoutCapInputs() {
+  const teams = [...new Set(COLS.map(c => c.team))];
+  const budget = parseFloat(document.getElementById('budget').value) || 10;
+  let html = '';
+  for (const team of teams) {
+    const capVal = (BLOWOUT_CAPS[team] !== undefined) ? BLOWOUT_CAPS[team] : budget;
+    const label  = team.charAt(0).toUpperCase() + team.slice(1);
+    html += `<div class="col">
+      <label class="red">Max loss if ${label} blowout ($)</label>
+      <input type="number" id="blowout_cap_${team}" value="${capVal}" min="0" step="0.5"
+        oninput="readBlowoutCaps(); updateBlowoutHints()">
+      <div class="hint" id="blowout_hint_${team}" style="min-height:14px"></div>
+    </div>`;
+  }
+  document.getElementById('blowoutCapRow').innerHTML = html;
+  readBlowoutCaps();
+  updateBlowoutHints();
+}
+
+function readBlowoutCaps() {
+  const teams = [...new Set(COLS.map(c => c.team))];
+  BLOWOUT_CAPS = {};
+  for (const team of teams) {
+    const el = document.getElementById(`blowout_cap_${team}`);
+    if (el) BLOWOUT_CAPS[team] = parseFloat(el.value) || 0;
+  }
 }
 
 // ── Optimizer ─────────────────────────────────────────────────────────────────
@@ -637,19 +669,15 @@ function flatToBets(flat) {
 }
 
 function optimizeBets(budget, minProfitTarget) {
-  const itersRaw = parseInt(document.getElementById('iterations').value, 10);
-  const ITERS = Number.isFinite(itersRaw) && itersRaw >= 100 ? itersRaw : 100000;
   const n = BRACKETS.length * COLS.length;
   let flat = new Array(n).fill(budget / n);
   const penaltyWeight = 500;
 
-  // Exclude: true blowouts, structurally unhedgeable (mult ≤ 1x), and any scenario
-  // whose lo margin is at or above the user-set guarantee boundary (BLOWOUT_AT).
-  const hedgeableScenarios = SCENARIOS.filter(s =>
-    !s.isBlowout && !s.isUnhedgeable && s.lo < BLOWOUT_AT
-  );
+  // Dynamically determine which scenarios can be jointly hedged at this floor+budget.
+  // The joint condition: Σ_k(1/max_am_k) ≤ budget/(floor+budget) per bracket range.
+  const hedgeableScenarios = getHedgeableScenarios(budget, minProfitTarget);
 
-  for (let iter = 0; iter < ITERS; iter++) {
+  for (let iter = 0; iter < 100000; iter++) {
     const sum = flat.reduce((a, x) => a + Math.max(0, x), 0);
     if (sum > 0) flat = flat.map(x => Math.max(0, x) * budget / sum);
 
@@ -694,7 +722,7 @@ function optimizeBets(budget, minProfitTarget) {
       }
     }
 
-    const lr = iter < ITERS * 0.5 ? 0.00003 : 0.000005;
+    const lr = iter < 50000 ? 0.00003 : 0.000005;
     for (let i = 0; i < n; i++) flat[i] = Math.max(0, flat[i] + lr * grad[i]);
   }
 
@@ -705,49 +733,61 @@ function optimizeBets(budget, minProfitTarget) {
 
 // ── Run ───────────────────────────────────────────────────────────────────────
 function runOptimizer() {
-  if (BRACKETS.length === 0) {
-    alert('Parse a CSV first.');
-    return;
-  }
-  const budget  = parseFloat(document.getElementById('budget').value) || 10;
-  const minProfitRaw = document.getElementById('minProfit').value.trim();
+  if (BRACKETS.length === 0) { alert('Parse a CSV first.'); return; }
+  const budget         = parseFloat(document.getElementById('budget').value) || 10;
+  const minProfitRaw   = document.getElementById('minProfit').value.trim();
   const minProfitTarget = minProfitRaw === '' ? 0 : Number(minProfitRaw);
-  const lastThresholdVal = BRACKETS[BRACKETS.length - 1]?.threshold ?? Infinity;
-  const blowoutRaw = document.getElementById('blowoutAt').value.trim();
-  BLOWOUT_AT = blowoutRaw === '' ? lastThresholdVal : parseFloat(blowoutRaw);
+
+  // Read blowout inputs from DOM
+  readBlowoutMults();
+  readBlowoutCaps();
+  const blowoutBets  = computeBlowoutBets(budget);
+  const blowoutTotal = Object.values(blowoutBets).reduce((a, b) => a + b, 0);
+  const comboBudget  = Math.max(0, budget - blowoutTotal);
+  // Raise the combo floor by blowoutTotal so real profit (combo profit - blowout drag) meets user's target
+  const effectiveFloor = minProfitTarget + blowoutTotal;
 
   const btn = document.getElementById('optimizeBtn');
-  const itersDisplay = parseInt(document.getElementById('iterations').value, 10) || 100000;
   btn.disabled = true;
   btn.textContent = 'SOLVING...';
-  document.getElementById('results').innerHTML = `<div class="placeholder-msg">Running optimizer (${itersDisplay.toLocaleString()} iterations)...</div>`;
+  document.getElementById('results').innerHTML =
+    '<div class="placeholder-msg">Running optimizer (100k iterations)...</div>';
 
   setTimeout(() => {
-    const bets   = optimizeBets(budget, minProfitTarget);
+    const bets      = optimizeBets(comboBudget, effectiveFloor);
     const scenProbs = getProbs();
+    const hedgeable = new Set(
+      getHedgeableScenarios(comboBudget, effectiveFloor).map(s => s.rangeKey)
+    );
+
     const results = SCENARIOS.map(s => {
+      if (s.isBlowout) {
+        const bc = calcBlowoutScenario(blowoutBets, budget, s.team);
+        return { ...s, ...bc, prob: scenProbs[s.rangeKey] || 0, isUnhedgeable: false };
+      }
       const r = calcScenario(bets, s);
-      // Mark scenarios beyond the guarantee boundary as "custom blowout"
-      const isBeyondGuarantee = !s.isBlowout && s.lo >= BLOWOUT_AT;
-      return { ...s, ...r, prob: scenProbs[s.rangeKey] || 0, isBeyondGuarantee };
+      const isUnhedgeable = !hedgeable.has(s.rangeKey);
+      // Subtract blowout hedge drag: those bets always lose in non-blowout scenarios
+      return {
+        ...s, ...r,
+        profit: r.profit - blowoutTotal,
+        prob: scenProbs[s.rangeKey] || 0,
+        isUnhedgeable,
+      };
     });
-    // Stats: only hedgeable scenarios within guarantee boundary
-    const hedgeResults = results.filter(r => !r.isBlowout && !r.isUnhedgeable && !r.isBeyondGuarantee);
-    const hedgeProfits = hedgeResults.map(r => r.profit);
-    const ev = results.reduce((sum, r) => sum + r.profit * r.prob, 0); // EV includes blowout
+
+    const hedgeResults  = results.filter(r => !r.isBlowout && !r.isUnhedgeable);
+    const hedgeProfits  = hedgeResults.map(r => r.profit);
+    const ev = results.reduce((sum, r) => sum + r.profit * r.prob, 0);
     const stats = {
-      min: Math.min(...hedgeProfits),
-      max: Math.max(...hedgeProfits),
-      avg: hedgeProfits.reduce((a, b) => a + b, 0) / hedgeProfits.length,
+      min: hedgeProfits.length ? Math.min(...hedgeProfits) : 0,
+      max: hedgeProfits.length ? Math.max(...hedgeProfits) : 0,
+      avg: hedgeProfits.length ? hedgeProfits.reduce((a, b) => a + b, 0) / hedgeProfits.length : 0,
       ev,
     };
-    render(bets, results, stats, budget, minProfitTarget);
-    // Init or re-init charts if budget changed
-    if (chartBudget !== budget) {
-      initD3Charts(budget);
-    } else {
-      document.getElementById('chartSection').style.display = 'block';
-    }
+
+    render(bets, results, stats, budget, minProfitTarget, scenProbs, blowoutBets, blowoutTotal);
+    renderCharts(budget, scenProbs, minProfitTarget);
     btn.disabled = false;
     btn.textContent = 'OPTIMIZE';
   }, 30);
@@ -765,10 +805,11 @@ function rangeLabel(lo, hi) {
   return `Win by ${loInt}–${Math.floor(hi)} pts`;
 }
 
-function render(bets, results, stats, budget, minProfitTarget) {
-  const totalBet = BRACKETS.flatMap(br => COLS.map(col => (bets[br.key] || {})[col.key] || 0)).reduce((a, b) => a + b, 0);
+function render(bets, results, stats, budget, minProfitTarget, scenProbs, blowoutBets, blowoutTotal) {
+  const comboDeployed = BRACKETS.flatMap(br => COLS.map(col => (bets[br.key] || {})[col.key] || 0)).reduce((a, b) => a + b, 0);
+  const totalBet = comboDeployed + (blowoutTotal || 0);
 
-  const hedgeResults      = results.filter(r => !r.isBlowout && !r.isUnhedgeable && !r.isBeyondGuarantee);
+  const hedgeResults      = results.filter(r => !r.isBlowout && !r.isUnhedgeable);
   const unhedgeableResults = results.filter(r => !r.isBlowout && r.isUnhedgeable);
   const blowoutResults    = results.filter(r => r.isBlowout);
   const hedgeProfits      = hedgeResults.map(r => r.profit);
@@ -788,25 +829,27 @@ function render(bets, results, stats, budget, minProfitTarget) {
 
   // Guarantee vs minimize banner
   const worstHedged = hedgeProfits.length > 0 ? Math.min(...hedgeProfits) : -Infinity;
-  const floorMet = worstHedged >= minProfitTarget - 0.05;
+  const floorMet    = worstHedged >= minProfitTarget - 0.05;
   const lastThreshold = BRACKETS[BRACKETS.length - 1]?.threshold ?? '?';
-  const guaranteeUpTo = BLOWOUT_AT < lastThreshold ? BLOWOUT_AT : lastThreshold;
-  const beyondCount = results.filter(r => r.isBeyondGuarantee).length;
+  const hasBlowoutHedge = (blowoutTotal || 0) > 0.001;
+
   if (floorMet && minProfitTarget >= -0.05) {
     const label = minProfitTarget <= 0.05
       ? 'BREAK-EVEN GUARANTEED'
       : `MIN $${minProfitTarget.toFixed(2)} PROFIT GUARANTEED`;
+    const blowoutNote = hasBlowoutHedge
+      ? ` <span style="color:var(--gold)">$${(blowoutTotal).toFixed(2)} reserved for blowout hedges (reduces combo profits by that amount).</span>`
+      : ` Blowout (win by ${lastThreshold}+ pts) is unhedgeable — you lose $${totalBet.toFixed(2)} deployed in that case.`;
     html += `<div style="background:#081a08;border:1px solid #1a5a1a;color:#80c080;padding:10px 14px;font-size:.62rem;margin-bottom:12px;line-height:1.7">
-      <strong style="color:var(--green);letter-spacing:.1em">${label}</strong> across all ${hedgeResults.length} hedged scenarios (margin 0–${guaranteeUpTo} pts).
-      ${beyondCount > 0 ? `<span style="color:#f0c040">Win by ${guaranteeUpTo}–${lastThreshold} pts: ${beyondCount} unguaranteed scenarios (outside floor).</span> ` : ''}
-      Blowout (win by ${lastThreshold}+ pts) is unhedgeable — you lose $${totalBet.toFixed(2)} deployed in that case.
+      <strong style="color:var(--green);letter-spacing:.1em">${label}</strong> across all ${hedgeResults.length} hedged scenarios (margin 0–${lastThreshold} pts).${blowoutNote}
     </div>`;
   } else {
+    const blowoutNote = hasBlowoutHedge
+      ? ` <span style="color:var(--gold)">$${(blowoutTotal).toFixed(2)} reserved for blowout hedges.</span>`
+      : ` Blowout (win by ${lastThreshold}+ pts) is always <span style="color:var(--red)">-$${totalBet.toFixed(2)}</span>.`;
     html += `<div style="background:var(--surface2);border:1px solid var(--border2);color:var(--muted);padding:10px 14px;font-size:.62rem;margin-bottom:12px;line-height:1.7">
       <strong style="color:var(--text);letter-spacing:.08em">FLOOR NOT MET</strong> — worst hedged scenario: ${fmt(worstHedged, true)} vs target ${fmt(minProfitTarget, true)}.
-      Try a lower Min Profit target, or increase your budget.
-      ${beyondCount > 0 ? `Win by ${guaranteeUpTo}–${lastThreshold} pts: ${beyondCount} unguaranteed scenarios. ` : ''}
-      Blowout (win by ${lastThreshold}+ pts) is always <span style="color:var(--red)">-$${totalBet.toFixed(2)}</span>.
+      Try a lower Min Profit target, or increase your budget.${blowoutNote}
     </div>`;
   }
 
@@ -815,54 +858,64 @@ function render(bets, results, stats, budget, minProfitTarget) {
     <span style="color:var(--gold)">Expected Value</span> = &Sigma;(scenario profit &times; probability). Positive EV = on average you come out ahead.
   </div>`;
 
-  // Allocation table — compute actual deployed totals for display
-  let totalDeployed = 0;
-  const betGrid = {};
-  for (const br of BRACKETS) {
-    betGrid[br.key] = {};
-    for (const col of COLS) {
-      const stake    = (bets[br.key] || {})[col.key] || 0;
-      const cp       = (PRICES[br.key] || {})[col.key] || 100;
-      const contracts = kalshiContracts(stake, cp);
-      const cost     = contracts * cp / 100;
-      betGrid[br.key][col.key] = { stake, cp, contracts, cost };
-      totalDeployed += cost;
-    }
-  }
-  const remainder = Math.max(0, budget - totalDeployed);
-
-  html += `<div class="section-title" style="margin-bottom:4px">BET ALLOCATION — enter these amounts in Kalshi</div>`;
-  html += `<div style="font-size:.54rem;color:var(--dim);margin-bottom:10px;line-height:1.6">
-    Amounts shown are what Kalshi will actually charge after integer contract rounding.
-    <strong style="color:var(--text)">Deployed: $${totalDeployed.toFixed(2)}</strong>
-    ${remainder > 0.005 ? `· <span style="color:var(--gold)">Remainder: $${remainder.toFixed(2)} returned unspent</span>` : `· <span style="color:var(--green)">Budget fully deployed</span>`}
-  </div>`;
+  // Allocation table
+  html += `<div class="section-title" style="margin-bottom:8px">BET ALLOCATION — total $${totalBet.toFixed(2)}</div>`;
   html += '<div class="alloc-wrap"><table class="alloc-table"><thead><tr><th class="left">MARGIN</th>';
   for (const col of COLS) html += `<th>${col.label}</th>`;
   html += '</tr></thead><tbody>';
   for (const br of BRACKETS) {
     html += `<tr><td class="margin-col">${br.label}</td>`;
     for (const col of COLS) {
-      const { stake, cp, contracts, cost } = betGrid[br.key][col.key];
-      const am = (100 / cp).toFixed(2);
+      const stake   = (bets[br.key] || {})[col.key] || 0;
+      const csvMult = (MULTIPLIERS[br.key] || {})[col.key] || 1;
+      const cp      = (PRICES[br.key] || {})[col.key] || 100;
+      const am      = (100 / cp).toFixed(2);
+      const payout  = kalshiPayout(stake, cp);
       const priceStr = `$0.${cp.toString().padStart(2,'0')}`;
-      const returned = stake - cost;
-      if (cost < 0.005) {
-        html += `<td style="color:var(--dim);text-align:center;font-size:.6rem">—</td>`;
-      } else {
-        html += `<td title="Price: ${priceStr} · ${contracts} contracts · optimizer stake $${stake.toFixed(2)}">
-          <div class="bet-amount">$${cost.toFixed(2)}</div>
-          <div class="bet-mult">${am}x · ${contracts} cts <span style="color:var(--dim)">→ $${contracts.toFixed(0)}</span></div>
-          ${returned > 0.005 ? `<div style="font-size:.44rem;color:var(--dim)">↩ $${returned.toFixed(2)} returned</div>` : ''}
-        </td>`;
-      }
+      html += `<td title="CSV mult: ${csvMult}x → Kalshi price: ${priceStr} → actual: ${am}x">
+        <div class="bet-amount">$${stake.toFixed(2)}</div>
+        <div class="bet-mult">${am}x <span style="color:var(--dim)">→ $${payout.toFixed(2)}</span></div>
+      </td>`;
     }
     html += '</tr>';
   }
   html += '</tbody></table></div>';
 
+  // Blowout hedge allocation (only shown when at least one hedge is active)
+  if (hasBlowoutHedge) {
+    const teams = [...new Set(COLS.map(c => c.team))];
+    html += `<div style="margin-top:6px;margin-bottom:16px">
+      <div class="section-title" style="font-size:.5rem;color:var(--red);margin-bottom:6px">BLOWOUT HEDGE BETS</div>
+      <table class="alloc-table" style="min-width:auto">
+        <thead><tr>
+          <th class="left">BET</th>
+          <th>STAKE</th>
+          <th>MULTIPLIER</th>
+          <th>PAYS IF BLOWOUT</th>
+          <th>LOSS CAP</th>
+        </tr></thead><tbody>`;
+    for (const team of teams) {
+      const b = (blowoutBets || {})[team] || 0;
+      if (b < 0.001) continue;
+      const M  = BLOWOUT_MULTS[team] || 0;
+      const cp = csvMultToPrice(M);
+      const payout = kalshiPayout(b, cp);
+      const cap = (BLOWOUT_CAPS[team] !== undefined) ? BLOWOUT_CAPS[team] : budget;
+      const label = team.charAt(0).toUpperCase() + team.slice(1);
+      const lastThresh = BRACKETS[BRACKETS.length - 1]?.threshold ?? '?';
+      html += `<tr>
+        <td class="margin-col" style="text-align:left">${label} wins by over ${lastThresh} pts</td>
+        <td><div class="bet-amount">$${b.toFixed(2)}</div></td>
+        <td><div class="bet-mult">${M}x</div></td>
+        <td style="color:var(--green);font-weight:700">+$${payout.toFixed(2)}</td>
+        <td style="color:var(--gold)">-$${cap.toFixed(2)} max</td>
+      </tr>`;
+    }
+    html += '</tbody></table></div>';
+  }
+
   // Hedged scenario cards
-  html += `<div class="section-title" style="margin-bottom:10px">HEDGED SCENARIOS (margin 0–${guaranteeUpTo} pts) — click to verify math</div>`;
+  html += `<div class="section-title" style="margin-bottom:10px">HEDGED SCENARIOS (margin 0–${lastThreshold} pts) — click to verify math</div>`;
   html += '<div class="scenario-grid">';
   const minProfit = stats.min, maxProfit = stats.max;
 
@@ -884,9 +937,8 @@ function render(bets, results, stats, budget, minProfitTarget) {
     if (!loseRows) loseRows = '<div class="detail-row"><span class="dr-l">none</span></div>';
 
     const isUnhLabel = r.isUnhedgeable && !r.isBlowout;
-    const cls = (r.isBlowout || isUnhLabel || r.isBeyondGuarantee) ? 'worst' : isWorst ? 'worst' : isBest ? 'best' : '';
+    const cls = (r.isBlowout || isUnhLabel) ? 'worst' : isWorst ? 'worst' : isBest ? 'best' : '';
     const tag = r.isBlowout ? ' <span style="color:var(--red);font-size:.48rem">BLOWOUT</span>'
-               : r.isBeyondGuarantee ? ' <span style="color:var(--gold);font-size:.48rem">UNGUARANTEED</span>'
                : isUnhLabel ? ' <span style="color:var(--red);font-size:.48rem">UNHEDGED</span>' : '';
     return `<div class="scenario-card ${cls}" onclick="this.classList.toggle('expanded')">
       <div style="display:flex;justify-content:space-between;align-items:flex-start">
@@ -902,9 +954,23 @@ function render(bets, results, stats, budget, minProfitTarget) {
         </div>
       </div>
       <div class="sc-detail">
-        ${r.isBlowout ? `<div style="background:#2a0808;padding:6px 8px;font-size:.6rem;color:#e09090;margin-bottom:8px;line-height:1.6">
-          No combo pays when the winning margin exceeds ${lastThreshold} pts. Every bet loses.
-        </div>` : ''}
+        ${r.isBlowout ? (() => {
+          if (!hasBlowoutHedge || !((blowoutBets || {})[r.team] > 0)) {
+            return `<div style="background:#2a0808;padding:6px 8px;font-size:.6rem;color:#e09090;margin-bottom:8px;line-height:1.6">
+              No combo pays when the winning margin exceeds ${lastThreshold} pts. Every bet loses.
+            </div>`;
+          }
+          const teamLabel  = r.team.charAt(0).toUpperCase() + r.team.slice(1);
+          const teams      = [...new Set(COLS.map(c => c.team))];
+          const otherTeam  = teams.find(t => t !== r.team) || '';
+          const otherLabel = otherTeam.charAt(0).toUpperCase() + otherTeam.slice(1);
+          const otherStake = (blowoutBets || {})[otherTeam] || 0;
+          return `<div style="background:#1a1400;padding:6px 8px;font-size:.6rem;color:#d0b060;margin-bottom:8px;line-height:1.6">
+            <strong>${teamLabel} blowout hedge wins:</strong> $${r.stake.toFixed(2)} &times; ${r.mult}x = +$${r.payout.toFixed(2)}<br>
+            ${otherStake > 0.001 ? `<span style="color:#e09090">${otherLabel} blowout hedge loses: -$${otherStake.toFixed(2)}</span><br>` : ''}
+            <span style="color:#e09090">All combo bets lose: -$${(budget - (blowoutTotal || 0)).toFixed(2)}</span>
+          </div>`;
+        })() : ''}
         ${isUnhLabel ? `<div style="background:#2a0808;padding:6px 8px;font-size:.6rem;color:#e09090;margin-bottom:8px;line-height:1.6">
           The paying bracket for this range has a multiplier &le; 1x. Even putting all budget on the winning bet returns only your stake (net 0) — all other bets still lose. Use a multiplier &gt; 1x in your CSV to hedge this range.
         </div>` : ''}
@@ -935,26 +1001,15 @@ function render(bets, results, stats, budget, minProfitTarget) {
   for (const r of hedgeResults) html += scenarioCard(r);
   html += '</div>';
 
-  // Beyond-guarantee scenarios (rows present in CSV but excluded from floor guarantee)
-  const beyondResults = results.filter(r => r.isBeyondGuarantee);
-  if (beyondResults.length > 0) {
-    html += `<div class="section-title" style="margin-bottom:6px;margin-top:20px;color:var(--gold)">UNGUARANTEED SCENARIOS (margin ${guaranteeUpTo}–${lastThreshold} pts) — OUTSIDE FLOOR</div>`;
-    html += `<div style="font-size:.6rem;color:#c0a040;margin-bottom:10px;line-height:1.6">
-      These scenarios are above your "Guarantee up to" boundary (${guaranteeUpTo} pts), so the optimizer was not required to protect them.
-      The optimizer may still have allocated something to these brackets if it helped other scenarios.
-      To include these in the floor guarantee, raise the "Guarantee up to" value — but only if the multipliers are high enough to make hedging feasible.
-    </div>`;
-    html += '<div class="scenario-grid">';
-    for (const r of beyondResults) html += scenarioCard(r);
-    html += '</div>';
-  }
-
-  // Unhedgeable (1x-mult) scenarios — shown separately like blowouts
+  // Unhedgeable scenarios — shown separately like blowouts
   if (unhedgeableResults.length > 0) {
-    html += `<div class="section-title" style="margin-bottom:6px;margin-top:20px;color:var(--red)">UNHEDGEABLE SCENARIOS (bracket mult &le; 1x) — EXCLUDED FROM OPTIMIZER</div>`;
+    const uniqLos = [...new Set(unhedgeableResults.map(r => r.lo))];
+    html += `<div class="section-title" style="margin-bottom:6px;margin-top:20px;color:var(--red)">UNHEDGEABLE SCENARIOS — EXCLUDED FROM OPTIMIZER</div>`;
     html += `<div style="font-size:.6rem;color:#c08080;margin-bottom:10px;line-height:1.6">
-      These margin ranges have a combo multiplier &le; 1x. A 1x gross bet returns only your stake if it wins — you can never profit, because all other bets still lose.
-      Replace the 1x entries in your CSV with real Kalshi multipliers (&gt; 1x) to make these ranges hedgeable.
+      These margin ranges cannot be hedged at the requested floor. Mathematically, covering all ${COLS.length} possible combo outcomes in a range requires
+      &Sigma;(1/best_mult<sub>k</sub>) &le; budget/(floor+budget). If a bracket's multipliers are too low, the budget needed to cover every combo outcome
+      exceeds your total budget — so the optimizer ignores these ranges rather than making everything else worse.
+      Add real Kalshi multipliers to make these ranges hedgeable, or lower your Min Guaranteed Profit target.
     </div>`;
     html += '<div class="scenario-grid">';
     for (const r of unhedgeableResults) html += scenarioCard(r);
@@ -976,8 +1031,382 @@ function render(bets, results, stats, budget, minProfitTarget) {
 
   document.getElementById('results').innerHTML = html;
   window.scrollTo({ top: document.getElementById('results').offsetTop - 20, behavior: 'smooth' });
+
+  // Draw charts after DOM is set
+  // Note: renderCharts is now called from runOptimizer with minProfitTarget
 }
 
+// ── Charts ────────────────────────────────────────────────────────────────────
+// For each floor value from -budget to +budget, run a fast optimizer (8k iters)
+// and record worst-case, best-case, avg, and EV. Plot 3 canvas charts.
+
+function optimizeFast(budget, floor, iters) {
+  const n = BRACKETS.length * COLS.length;
+  if (n === 0) return new Array(n).fill(0);
+  let flat = new Array(n).fill(budget / n);
+  const pen = 300;
+  const hScen = getHedgeableScenarios(budget, floor);
+  if (hScen.length === 0) return flatToBets(flat);
+
+  for (let iter = 0; iter < iters; iter++) {
+    const sum = flat.reduce((a, x) => a + Math.max(0, x), 0);
+    if (sum > 0) flat = flat.map(x => Math.max(0, x) * budget / sum);
+    const bets = flatToBets(flat);
+    const profits = hScen.map(s => calcScenario(bets, s).profit);
+    const grad = new Array(n).fill(0);
+    for (const s of hScen) {
+      const { team, total, lo, isBlowout } = s;
+      const comboKey = `${team}_${total}`;
+      const payingSet = new Set(getPayingBrackets(lo, isBlowout).map(b => b.key));
+      BRACKETS.forEach((br, bi) => {
+        COLS.forEach((col, ci) => {
+          const idx = bi * COLS.length + ci;
+          const isPaying = col.key === comboKey && payingSet.has(br.key);
+          const cp = (PRICES[br.key] || {})[col.key] || 100;
+          grad[idx] += (isPaying ? 100/cp - 1 : -1) / hScen.length;
+        });
+      });
+    }
+    const minP = Math.min(...profits);
+    if (minP < floor) {
+      const wP = profits.reduce((b, p, i) => p < profits[b] ? i : b, 0);
+      const wVal = profits[wP];
+      const worst = hScen.filter((_, i) => Math.abs(profits[i] - wVal) < 0.02);
+      for (const s of worst) {
+        const { team, total, lo, isBlowout } = s;
+        const comboKey = `${team}_${total}`;
+        const payingSet = new Set(getPayingBrackets(lo, isBlowout).map(b => b.key));
+        BRACKETS.forEach((br, bi) => {
+          COLS.forEach((col, ci) => {
+            const idx = bi * COLS.length + ci;
+            const isPaying = col.key === comboKey && payingSet.has(br.key);
+            const cp = (PRICES[br.key] || {})[col.key] || 100;
+            grad[idx] += pen * (isPaying ? 100/cp - 1 : -1) / worst.length;
+          });
+        });
+      }
+    }
+    const lr = iter < iters * 0.6 ? 0.00005 : 0.000008;
+    for (let i = 0; i < n; i++) flat[i] = Math.max(0, flat[i] + lr * grad[i]);
+  }
+  const sum = flat.reduce((a, x) => a + Math.max(0, x), 0);
+  if (sum > 0) flat = flat.map(x => Math.max(0, x) * budget / sum);
+  return flatToBets(flat);
+}
+
+function computeChartData(budget, scenProbs) {
+  const STEPS = 30;
+  const floors = [];
+  for (let i = 0; i <= STEPS; i++)
+    floors.push(-budget + (2 * budget * i / STEPS));
+
+  return floors.map(floor => {
+    const bets = optimizeFast(budget, floor, 8000);
+    const hedgeable = new Set(getHedgeableScenarios(budget, floor).map(s => s.rangeKey));
+    const results = SCENARIOS.map(s => {
+      const r = calcScenario(bets, s);
+      const isUnhedgeable = !s.isBlowout && !hedgeable.has(s.rangeKey);
+      return { ...s, ...r, prob: scenProbs[s.rangeKey] || 0, isUnhedgeable };
+    });
+    const hRes = results.filter(r => !r.isBlowout && !r.isUnhedgeable);
+    const hP   = hRes.map(r => r.profit);
+    const ev   = results.reduce((s, r) => s + r.profit * r.prob, 0);
+    return {
+      floor,
+      worst: hP.length ? Math.min(...hP) : -budget,
+      best:  hP.length ? Math.max(...hP) : -budget,
+      avg:   hP.length ? hP.reduce((a, b) => a + b, 0) / hP.length : -budget,
+      ev,
+    };
+  });
+}
+
+function computeBlowoutChartData(budget, minProfitTarget) {
+  const teams = [...new Set(COLS.map(c => c.team))];
+  if (!Object.values(BLOWOUT_MULTS).some(m => m > 1)) return null;
+
+  const STEPS = 20;
+  const result = {};
+
+  for (let ti = 0; ti < teams.length; ti++) {
+    const sweepTeam = teams[ti];
+    const data = [];
+
+    for (let i = 0; i <= STEPS; i++) {
+      const cap = (budget * i) / STEPS;
+
+      // Temporarily override this team's cap
+      const savedCaps = BLOWOUT_CAPS;
+      BLOWOUT_CAPS = { ...BLOWOUT_CAPS, [sweepTeam]: cap };
+      let bb;
+      try {
+        bb = computeBlowoutBets(budget);
+      } finally {
+        BLOWOUT_CAPS = savedCaps;
+      }
+
+      const bt = Object.values(bb).reduce((a, b) => a + b, 0);
+      const cb = Math.max(0, budget - bt);
+      const ef = minProfitTarget + bt;
+
+      const bets   = optimizeFast(cb, ef, 8000);
+      const hScen  = getHedgeableScenarios(cb, ef);
+      const profits = hScen.map(s => calcScenario(bets, s).profit - bt);
+      const minP   = profits.length ? Math.min(...profits) : -budget;
+
+      data.push({ cap, minProfit: minP });
+    }
+    result[sweepTeam] = data;
+  }
+  return { data: result, teams };
+}
+
+function renderBlowoutChart(budget, minProfitTarget) {
+  const canvas = document.getElementById('chart-blowout');
+  if (!canvas) return;
+
+  const chartData = computeBlowoutChartData(budget, minProfitTarget);
+  if (!chartData) {
+    const ctx = canvas.getContext('2d');
+    ctx.clearRect(0, 0, canvas.width, canvas.height);
+    return;
+  }
+
+  canvas.width = canvas.offsetWidth || 300;
+  const W = canvas.width, H = canvas.height;
+  const PAD = { top: 10, right: 60, bottom: 36, left: 46 };
+  const cW = W - PAD.left - PAD.right;
+  const cH = H - PAD.top - PAD.bottom;
+  const ctx = canvas.getContext('2d');
+  ctx.clearRect(0, 0, W, H);
+
+  const teams  = chartData.teams;
+  const colors = ['#5a8ae0', '#f0c040'];
+  const allVals = Object.values(chartData.data).flatMap(d => d.map(p => p.minProfit));
+  const minV  = Math.min(...allVals, 0);
+  const maxV  = Math.max(...allVals, 0);
+  const vRange = maxV - minV || 1;
+  const toX = cap => PAD.left + (cap / budget) * cW;
+  const toY = v   => PAD.top  + (1 - (v - minV) / vRange) * cH;
+
+  // Grid
+  ctx.strokeStyle = '#2a2a3a'; ctx.lineWidth = 1;
+  for (let i = 0; i <= 4; i++) {
+    const y = PAD.top + (i / 4) * cH;
+    ctx.beginPath(); ctx.moveTo(PAD.left, y); ctx.lineTo(PAD.left + cW, y); ctx.stroke();
+    const v = maxV - (i / 4) * vRange;
+    ctx.fillStyle = '#555'; ctx.font = '9px monospace'; ctx.textAlign = 'right';
+    ctx.fillText((v >= 0 ? '+' : '') + v.toFixed(1), PAD.left - 4, y + 3);
+  }
+
+  // Zero line
+  if (minV < 0 && maxV > 0) {
+    const y0 = toY(0);
+    ctx.strokeStyle = '#3a3a4a'; ctx.setLineDash([3, 3]);
+    ctx.beginPath(); ctx.moveTo(PAD.left, y0); ctx.lineTo(PAD.left + cW, y0); ctx.stroke();
+    ctx.setLineDash([]);
+  }
+
+  // Lines per team
+  for (let ti = 0; ti < teams.length; ti++) {
+    const team = teams[ti];
+    const data = chartData.data[team];
+    if (!data) continue;
+    const color = colors[ti % colors.length];
+
+    // Current cap vertical marker
+    const curCap = (BLOWOUT_CAPS[team] !== undefined) ? BLOWOUT_CAPS[team] : budget;
+    if (curCap >= 0 && curCap <= budget) {
+      ctx.strokeStyle = color + '55'; ctx.setLineDash([2, 4]); ctx.lineWidth = 1;
+      ctx.beginPath(); ctx.moveTo(toX(curCap), PAD.top); ctx.lineTo(toX(curCap), PAD.top + cH); ctx.stroke();
+      ctx.setLineDash([]);
+    }
+
+    // Fill under line
+    ctx.fillStyle = color + '18';
+    ctx.beginPath();
+    data.forEach((d, i) => { i === 0 ? ctx.moveTo(toX(d.cap), toY(d.minProfit)) : ctx.lineTo(toX(d.cap), toY(d.minProfit)); });
+    ctx.lineTo(toX(data[data.length - 1].cap), toY(0));
+    ctx.lineTo(toX(data[0].cap), toY(0));
+    ctx.closePath(); ctx.fill();
+
+    // Line
+    ctx.strokeStyle = color; ctx.lineWidth = 2;
+    ctx.beginPath();
+    data.forEach((d, i) => { i === 0 ? ctx.moveTo(toX(d.cap), toY(d.minProfit)) : ctx.lineTo(toX(d.cap), toY(d.minProfit)); });
+    ctx.stroke();
+
+    // Legend label at end of line
+    const last = data[data.length - 1];
+    ctx.fillStyle = color; ctx.font = '9px monospace'; ctx.textAlign = 'left';
+    const teamLabel = team.charAt(0).toUpperCase() + team.slice(1);
+    ctx.fillText(teamLabel, toX(last.cap) + 4, toY(last.minProfit) + 3);
+  }
+
+  // X-axis labels
+  ctx.fillStyle = '#555'; ctx.font = '9px monospace'; ctx.textAlign = 'center';
+  for (const f of [0, budget / 2, budget]) {
+    const x = toX(f);
+    ctx.fillText('$' + f.toFixed(1), x, H - PAD.bottom + 14);
+    ctx.strokeStyle = '#333'; ctx.lineWidth = 1;
+    ctx.beginPath(); ctx.moveTo(x, PAD.top + cH); ctx.lineTo(x, PAD.top + cH + 4); ctx.stroke();
+  }
+  ctx.fillStyle = '#444'; ctx.font = '8px monospace'; ctx.textAlign = 'center';
+  ctx.fillText('max loss if blowout ($)', PAD.left + cW / 2, H - 2);
+}
+
+function renderCharts(budget, scenProbs, minProfitTarget) {
+  const container = document.getElementById('charts-section');
+  if (!container) return;
+
+  container.innerHTML = '<div class="placeholder-msg" style="font-size:.7rem">Computing sensitivity charts...</div>';
+
+  // Defer so DOM paints first
+  setTimeout(() => {
+    const data = computeChartData(budget, scenProbs);
+
+    const chartDefs = [
+      { id: 'chart-worst', title: 'WORST CASE vs MIN FLOOR', key: 'worst', color: '#e05a5a' },
+      { id: 'chart-avg',   title: 'AVG PROFIT vs MIN FLOOR',  key: 'avg',   color: '#5a9e6f' },
+      { id: 'chart-ev',    title: 'EXPECTED VALUE vs MIN FLOOR', key: 'ev', color: '#f0c040' },
+    ];
+
+    let html = `<div class="section-title" style="margin-bottom:12px;margin-top:32px">SENSITIVITY — How Min Guaranteed Profit affects outcomes (given $${budget.toFixed(2)} budget)</div>`;
+    html += '<div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(300px,1fr));gap:16px;margin-bottom:24px">';
+    for (const c of chartDefs) {
+      html += `<div style="background:var(--surface);border:1px solid var(--border);border-radius:4px;padding:14px">
+        <div style="font-size:.54rem;letter-spacing:.2em;color:var(--muted);margin-bottom:10px">${c.title}</div>
+        <canvas id="${c.id}" height="160" style="width:100%"></canvas>
+      </div>`;
+    }
+    const hasBlowoutMults = Object.values(BLOWOUT_MULTS).some(m => m > 1);
+    html += `<div style="background:var(--surface);border:1px solid var(--border);border-radius:4px;padding:14px">
+      <div style="font-size:.54rem;letter-spacing:.2em;color:var(--muted);margin-bottom:10px">BLOWOUT CAP vs MIN COMBO PROFIT</div>
+      ${hasBlowoutMults
+        ? `<canvas id="chart-blowout" height="160" style="width:100%"></canvas>`
+        : `<div style="color:#333;font-size:.72rem;text-align:center;margin:40px 0">Enter blowout multipliers above to see this chart.</div>`
+      }
+    </div>`;
+    html += '</div>';
+    container.innerHTML = html;
+
+    for (const c of chartDefs) {
+      const canvas = document.getElementById(c.id);
+      if (!canvas) continue;
+      canvas.width = canvas.offsetWidth || 300;
+      drawChart(canvas, data, c.key, c.color, budget);
+    }
+    renderBlowoutChart(budget, minProfitTarget);
+  }, 50);
+}
+
+function drawChart(canvas, data, key, lineColor, budget) {
+  const ctx = canvas.getContext('2d');
+  const W = canvas.width, H = canvas.height;
+  const PAD = { top: 10, right: 14, bottom: 36, left: 46 };
+  const cW = W - PAD.left - PAD.right;
+  const cH = H - PAD.top - PAD.bottom;
+
+  ctx.clearRect(0, 0, W, H);
+
+  const vals  = data.map(d => d[key]);
+  const floors = data.map(d => d.floor);
+  const minV  = Math.min(...vals, 0);
+  const maxV  = Math.max(...vals, 0);
+  const vRange = maxV - minV || 1;
+  const fRange = floors[floors.length-1] - floors[0] || 1;
+
+  const toX = f => PAD.left + ((f - floors[0]) / fRange) * cW;
+  const toY = v => PAD.top  + (1 - (v - minV) / vRange) * cH;
+
+  // Grid + zero line
+  ctx.strokeStyle = '#2a2a3a';
+  ctx.lineWidth = 1;
+  for (let i = 0; i <= 4; i++) {
+    const y = PAD.top + (i / 4) * cH;
+    ctx.beginPath(); ctx.moveTo(PAD.left, y); ctx.lineTo(PAD.left + cW, y); ctx.stroke();
+    const v = maxV - (i / 4) * vRange;
+    ctx.fillStyle = '#555'; ctx.font = '9px monospace'; ctx.textAlign = 'right';
+    ctx.fillText((v >= 0 ? '+' : '') + v.toFixed(1), PAD.left - 4, y + 3);
+  }
+
+  // Zero profit line
+  if (minV < 0 && maxV > 0) {
+    const y0 = toY(0);
+    ctx.strokeStyle = '#3a3a4a'; ctx.setLineDash([3, 3]);
+    ctx.beginPath(); ctx.moveTo(PAD.left, y0); ctx.lineTo(PAD.left + cW, y0); ctx.stroke();
+    ctx.setLineDash([]);
+  }
+
+  // Current floor vertical marker
+  const curFloor = parseFloat(document.getElementById('minProfit').value) || 0;
+  if (curFloor >= floors[0] && curFloor <= floors[floors.length-1]) {
+    const xF = toX(curFloor);
+    ctx.strokeStyle = '#444466'; ctx.setLineDash([2, 4]);
+    ctx.beginPath(); ctx.moveTo(xF, PAD.top); ctx.lineTo(xF, PAD.top + cH); ctx.stroke();
+    ctx.setLineDash([]);
+  }
+
+  // Data line
+  ctx.strokeStyle = lineColor;
+  ctx.lineWidth = 2;
+  ctx.beginPath();
+  data.forEach((d, i) => {
+    const x = toX(d.floor), y = toY(d[key]);
+    i === 0 ? ctx.moveTo(x, y) : ctx.lineTo(x, y);
+  });
+  ctx.stroke();
+
+  // Fill under line
+  ctx.fillStyle = lineColor + '18';
+  ctx.beginPath();
+  data.forEach((d, i) => { i === 0 ? ctx.moveTo(toX(d.floor), toY(d[key])) : ctx.lineTo(toX(d.floor), toY(d[key])); });
+  ctx.lineTo(toX(floors[floors.length-1]), toY(0));
+  ctx.lineTo(toX(floors[0]), toY(0));
+  ctx.closePath(); ctx.fill();
+
+  // X-axis labels
+  ctx.fillStyle = '#555'; ctx.font = '9px monospace'; ctx.textAlign = 'center';
+  const xTicks = [-budget, 0, budget];
+  for (const f of xTicks) {
+    if (f < floors[0] || f > floors[floors.length-1]) continue;
+    const x = toX(f);
+    ctx.fillText((f >= 0 ? '+' : '') + f.toFixed(1), x, H - PAD.bottom + 14);
+    ctx.strokeStyle = '#333'; ctx.lineWidth = 1;
+    ctx.beginPath(); ctx.moveTo(x, PAD.top + cH); ctx.lineTo(x, PAD.top + cH + 4); ctx.stroke();
+  }
+
+  // X-axis label
+  ctx.fillStyle = '#444'; ctx.font = '8px monospace'; ctx.textAlign = 'center';
+  ctx.fillText('min guaranteed profit ($)', PAD.left + cW/2, H - 2);
+}
+
+function loadProbJson() {
+  const raw = document.getElementById('probJson').value.trim();
+  const statusEl = document.getElementById('probLoadStatus');
+  let data;
+  try { data = JSON.parse(raw); } catch(e) {
+    statusEl.innerHTML = '<span style="color:var(--red)">Invalid JSON</span>';
+    return;
+  }
+  if (data.p_spurs_win  !== undefined) document.getElementById('pSpursWin').value  = data.p_spurs_win;
+  if (data.p_knicks_win !== undefined) document.getElementById('pKnicksWin').value = data.p_knicks_win;
+  if (data.p_over       !== undefined) document.getElementById('pOver').value       = data.p_over;
+  if (data.p_under      !== undefined) document.getElementById('pUnder').value      = data.p_under;
+  if (data.cum_spurs) {
+    for (const br of BRACKETS) {
+      const el = document.getElementById(`cum_spurs_${br.key}`);
+      if (el && data.cum_spurs[br.threshold] !== undefined) el.value = data.cum_spurs[br.threshold];
+    }
+  }
+  if (data.cum_knicks) {
+    for (const br of BRACKETS) {
+      const el = document.getElementById(`cum_knicks_${br.key}`);
+      if (el && data.cum_knicks[br.threshold] !== undefined) el.value = data.cum_knicks[br.threshold];
+    }
+  }
+  statusEl.innerHTML = '<span style="color:var(--green)">Loaded ✓</span>';
+}
 
 function toggleProb() {
   const s = document.getElementById('probSection');
@@ -986,307 +1415,13 @@ function toggleProb() {
   a.textContent = open ? '▲ hide' : '▼ show';
 }
 
-// ── Table Input ────────────────────────────────────────────────────────────────
-function updateColumnHeaders() {
-  const t1 = (document.getElementById('team1Name').value || 'Team 1').trim().toUpperCase();
-  const t2 = (document.getElementById('team2Name').value || 'Team 2').trim().toUpperCase();
-  [t1+' OVER', t1+' UNDER', t2+' OVER', t2+' UNDER'].forEach((h, i) => {
-    const el = document.getElementById(`colH${i}`);
-    if (el) el.innerHTML = `<span class="col-header-inner">${h}</span>`;
-  });
-}
-
-function addTableRow(threshold = '', values = ['', '', '', '']) {
-  const tr = document.createElement('tr');
-  tr.innerHTML = `
-    <td>
-      <div class="threshold-cell">
-        <span>Under</span>
-        <input type="number" class="threshold-input" value="${threshold}" placeholder="4.5" step="0.5" min="0">
-      </div>
-    </td>
-    ${values.map(v => `<td><input type="text" class="mult-input" value="${v}" placeholder="—"></td>`).join('')}
-    <td style="text-align:center;padding:2px"><button class="del-row" onclick="this.closest('tr').remove()">×</button></td>
-  `;
-  document.getElementById('multTableBody').appendChild(tr);
-}
-
-function loadFromFile(input) {
-  const file = input.files[0];
-  if (!file) return;
-  document.getElementById('importedFileName').textContent = file.name;
-  const reader = new FileReader();
-  reader.onload = e => fillTableFromCSV(e.target.result);
-  reader.readAsText(file);
-  input.value = '';
-}
-
-function fillTableFromCSV(text) {
-  const rows = text.trim().split('\n').map(r => r.split(',').map(c => c.trim()));
-  let headerRow = -1;
-  for (let i = 0; i < rows.length; i++) {
-    const joined = rows[i].slice(1).join(' ').toLowerCase();
-    if (rows[i].length >= 3 && /over|under/i.test(joined) && /[a-z]/i.test(rows[i][1] || '')) {
-      headerRow = i; break;
-    }
-  }
-  if (headerRow === -1) { alert('Could not find header row. Expected a row with column names containing Over/Under.'); return; }
-
-  const colHeaders = rows[headerRow].slice(1).filter(c => c);
-  const t1m = colHeaders[0]?.match(/^([^+&,]+?)[\s+]+(?:over|under)/i);
-  const t2m = colHeaders[2]?.match(/^([^+&,]+?)[\s+]+(?:over|under)/i);
-  if (t1m) document.getElementById('team1Name').value = t1m[1].trim();
-  if (t2m) document.getElementById('team2Name').value = t2m[1].trim();
-  updateColumnHeaders();
-
-  document.getElementById('multTableBody').innerHTML = '';
-  for (let i = headerRow + 1; i < rows.length; i++) {
-    if (!rows[i][0]?.trim()) continue;
-    const m = rows[i][0].match(/[\d.]+/);
-    if (!m) continue;
-    addTableRow(m[0], [0,1,2,3].map(j => (rows[i][j+1] || '').trim()));
-  }
-}
-
-function parseFromTable() {
-  const t1 = (document.getElementById('team1Name').value || 'Team1').trim();
-  const t2 = (document.getElementById('team2Name').value || 'Team2').trim();
-  const lines = [`Win Margin,${t1} + over,${t1} + under,${t2} + over,${t2} + under`];
-  let hasData = false;
-  for (const row of document.querySelectorAll('#multTableBody tr')) {
-    const thr = row.querySelector('.threshold-input')?.value.trim();
-    if (!thr) continue;
-    const mults = [...row.querySelectorAll('.mult-input')].map(i => i.value.trim() || '');
-    if (mults.some(m => m)) { lines.push(`Under ${thr},${mults.join(',')}`); hasData = true; }
-  }
-  if (!hasData) {
-    document.getElementById('parseStatus').innerHTML = '<div class="error-box">No data rows found. Add at least one row with a threshold and multipliers.</div>';
-    return;
-  }
-  document.getElementById('csvInput').value = lines.join('\n');
-  parseCSV();
-}
-
-// Seed table with default example on load
-window.addEventListener('DOMContentLoaded', () => {
-  addTableRow('4.5',  ['14.8x','17.3x','15.8x','19.9x']);
-  addTableRow('10.5', ['5.1x','6x','7.3x','8.6x']);
-  addTableRow('20.5', ['3.7x','4.1x','5.3x','5.6x']);
-});
-
-// ── Sensitivity Analysis ───────────────────────────────────────────────────────
-function runAtMinProfit(minProfitVal) {
-  const budget = parseFloat(document.getElementById('budget').value) || 10;
-  const lastT = BRACKETS[BRACKETS.length - 1]?.threshold ?? Infinity;
-  const blowoutRaw = document.getElementById('blowoutAt').value.trim();
-  const blowoutAt = blowoutRaw === '' ? lastT : parseFloat(blowoutRaw);
-
-  const savedBA = BLOWOUT_AT;
-  BLOWOUT_AT = blowoutAt;
-  const bets = optimizeBets(budget, minProfitVal);
-  BLOWOUT_AT = savedBA;
-
-  const scenProbs = getProbs();
-  const results = SCENARIOS.map(s => {
-    const r = calcScenario(bets, s);
-    return { ...s, ...r, prob: scenProbs[s.rangeKey] || 0,
-             isBeyondGuarantee: !s.isBlowout && s.lo >= blowoutAt };
-  });
-  const hedge = results.filter(r => !r.isBlowout && !r.isUnhedgeable && !r.isBeyondGuarantee);
-  const hp = hedge.map(r => r.profit);
-  const ev = results.reduce((s, r) => s + r.profit * r.prob, 0);
-  return {
-    worstCase:  hp.length ? Math.min(...hp) : -budget,
-    avgProfit:  hp.length ? hp.reduce((a,b)=>a+b,0)/hp.length : 0,
-    bestCase:   hp.length ? Math.max(...hp) : 0,
-    expectedVal: ev,
-  };
-}
-
-// ── D3 Charts ─────────────────────────────────────────────────────────────────
-const CHART_DEFS = [
-  { id: 'chart-worst', title: 'WORST CASE',      key: 'worstCase',   color: '#cc4f4f' },
-  { id: 'chart-avg',   title: 'AVERAGE PROFIT',  key: 'avgProfit',   color: '#4d9468' },
-  { id: 'chart-best',  title: 'BEST CASE',        key: 'bestCase',    color: '#4a78cc' },
-  { id: 'chart-ev',    title: 'EXPECTED VALUE',   key: 'expectedVal', color: '#d4a830' },
-];
-let chartInstances = {};
-let chartBudget = null;
-let chartComputing = false;
-
-function initD3Charts(budget) {
-  chartBudget = budget;
-  CHART_DEFS.forEach(def => {
-    chartInstances[def.key] = buildChart(def, budget);
-  });
-  document.getElementById('chartSection').style.display = 'block';
-  setTimeout(() => document.getElementById('chartSection').scrollIntoView({behavior:'smooth', block:'start'}), 80);
-}
-
-function buildChart(def, budget) {
-  const container = document.getElementById(def.id);
-  container.innerHTML = '';
-  const totalW = container.clientWidth || 460;
-  const m = {top:32, right:16, bottom:48, left:52};
-  const W = totalW - m.left - m.right;
-  const H = 180 - m.top - m.bottom;
-
-  const xSc = d3.scaleLinear().domain([-budget, budget]).range([0, W]);
-  const ySc = d3.scaleLinear().domain([-budget, budget]).range([H, 0]);
-
-  const svg = d3.select(container).append('svg')
-    .attr('viewBox', `0 0 ${totalW} ${H + m.top + m.bottom}`)
-    .style('width','100%').style('height','auto').style('display','block');
-
-  const g = svg.append('g').attr('transform', `translate(${m.left},${m.top})`);
-
-  // Background rect
-  g.append('rect').attr('width', W).attr('height', H).attr('fill', '#06060b');
-
-  // Grid
-  const gridG = g.append('g').attr('class', 'grid-g');
-  function drawGrid() {
-    gridG.selectAll('*').remove();
-    gridG.selectAll('.gy').data(ySc.ticks(4)).enter().append('line')
-      .attr('class','gy').attr('x1',0).attr('x2',W)
-      .attr('y1',d=>ySc(d)).attr('y2',d=>ySc(d))
-      .attr('stroke','#1a1a26').attr('stroke-dasharray','3,5');
-    gridG.selectAll('.gx').data(xSc.ticks(5)).enter().append('line')
-      .attr('class','gx').attr('x1',d=>xSc(d)).attr('x2',d=>xSc(d))
-      .attr('y1',0).attr('y2',H)
-      .attr('stroke','#1a1a26').attr('stroke-dasharray','3,5');
-  }
-  drawGrid();
-
-  // Zero line
-  const zeroLine = g.append('line').attr('x1',0).attr('x2',W)
-    .attr('y1',ySc(0)).attr('y2',ySc(0))
-    .attr('stroke','#2a2a3e').attr('stroke-width',1);
-
-  // Axes
-  const xAxisG = g.append('g').attr('class','d3-axis').attr('transform',`translate(0,${H})`)
-    .call(d3.axisBottom(xSc).ticks(5).tickFormat(d=>`$${d}`));
-  xAxisG.select('.domain').attr('stroke','#252535');
-  xAxisG.selectAll('text').style('fill','#4a4a60').style('font-size','9px').style('font-family','JetBrains Mono,monospace');
-
-  const yAxisG = g.append('g').attr('class','d3-axis')
-    .call(d3.axisLeft(ySc).ticks(4).tickFormat(d=>`$${d.toFixed(0)}`));
-  yAxisG.select('.domain').attr('stroke','#252535');
-  yAxisG.selectAll('text').style('fill','#4a4a60').style('font-size','9px').style('font-family','JetBrains Mono,monospace');
-
-  // X-axis label
-  g.append('text').attr('x',W/2).attr('y',H+40).attr('text-anchor','middle')
-    .style('fill','#333348').style('font-size','8px').style('letter-spacing','.14em')
-    .style('font-family','JetBrains Mono,monospace').text('MIN GUARANTEED PROFIT →');
-
-  // Title
-  g.append('text').attr('x',W/2).attr('y',-14).attr('text-anchor','middle')
-    .style('fill',def.color).style('font-size','9px').style('letter-spacing','.22em')
-    .style('font-weight','700').style('font-family','JetBrains Mono,monospace').text(def.title);
-
-  // Area + line paths
-  const areaPath = g.append('path').attr('fill',def.color).attr('opacity',.08);
-  const linePath = g.append('path').attr('fill','none').attr('stroke',def.color)
-    .attr('stroke-width',1.8).attr('stroke-linecap','round').attr('stroke-linejoin','round');
-  const dotsG = g.append('g');
-
-  // Hover elements
-  const hoverLine = g.append('line').attr('y1',0).attr('y2',H)
-    .attr('stroke',def.color).attr('stroke-width',.8).attr('stroke-dasharray','3,3').attr('opacity',0);
-  const hoverDot = g.append('circle').attr('r',3.5).attr('fill',def.color)
-    .attr('stroke','#06060b').attr('stroke-width',1.5).attr('opacity',0);
-  const hoverLabelBg = g.append('rect').attr('rx',2).attr('fill','#0e0e16').attr('stroke',def.color)
-    .attr('stroke-width',.5).attr('opacity',0);
-  const hoverLabel = g.append('text').attr('text-anchor','middle')
-    .style('fill',def.color).style('font-size','8px').style('font-family','JetBrains Mono,monospace')
-    .attr('opacity',0);
-
-  // Overlay for interaction
-  g.append('rect').attr('width',W).attr('height',H).attr('fill','transparent')
-    .attr('cursor', chartComputing ? 'wait' : 'crosshair')
-    .on('mousemove', function(event) {
-      if (chartComputing) return;
-      const [mx] = d3.pointer(event);
-      const xVal = xSc.invert(mx);
-      hoverLine.attr('x1',mx).attr('x2',mx).attr('opacity',.6);
-      const label = `$${xVal.toFixed(2)}`;
-      hoverLabel.attr('x',mx).attr('y',-5).text(label).attr('opacity',1);
-      const bbox = hoverLabel.node().getBBox();
-      hoverLabelBg.attr('x',bbox.x-3).attr('y',bbox.y-2).attr('width',bbox.width+6).attr('height',bbox.height+4).attr('opacity',1);
-    })
-    .on('mouseleave', function() {
-      hoverLine.attr('opacity',0); hoverDot.attr('opacity',0);
-      hoverLabel.attr('opacity',0); hoverLabelBg.attr('opacity',0);
-    })
-    .on('click', function(event) {
-      if (chartComputing || BRACKETS.length === 0) {
-        if (BRACKETS.length === 0) alert('Parse your data first, then click to compute.');
-        return;
-      }
-      const [mx] = d3.pointer(event);
-      const xVal = parseFloat(xSc.invert(mx).toFixed(2));
-      computeAndPlot(xVal);
-    });
-
-  let data = [];
-
-  function update() {
-    if (!data.length) return;
-    const yVals = data.map(d=>d.y);
-    const yMin = Math.min(...yVals), yMax = Math.max(...yVals);
-    const pad = Math.max((yMax-yMin)*.2, .5);
-    ySc.domain([yMin-pad, yMax+pad]);
-    yAxisG.call(d3.axisLeft(ySc).ticks(4).tickFormat(d=>`$${d.toFixed(0)}`));
-    yAxisG.select('.domain').attr('stroke','#252535');
-    yAxisG.selectAll('text').style('fill','#4a4a60').style('font-size','9px').style('font-family','JetBrains Mono,monospace');
-    drawGrid();
-    zeroLine.attr('y1',ySc(0)).attr('y2',ySc(0));
-
-    const sorted = [...data].sort((a,b)=>a.x-b.x);
-    const lineGen = d3.line().x(d=>xSc(d.x)).y(d=>ySc(d.y)).curve(d3.curveMonotoneX);
-    const areaGen = d3.area().x(d=>xSc(d.x)).y0(ySc(0)).y1(d=>ySc(d.y)).curve(d3.curveMonotoneX);
-    linePath.attr('d', sorted.length > 1 ? lineGen(sorted) : null);
-    areaPath.attr('d', sorted.length > 1 ? areaGen(sorted) : null);
-
-    const pts = dotsG.selectAll('circle').data(data, d=>d.x);
-    pts.enter().append('circle').attr('r',4).attr('fill',def.color)
-      .attr('stroke','#06060b').attr('stroke-width',1.5)
-      .attr('cx',d=>xSc(d.x)).attr('cy',d=>ySc(d.y))
-      .style('opacity',0).transition().duration(200).style('opacity',1);
-    pts.transition().duration(150).attr('cx',d=>xSc(d.x)).attr('cy',d=>ySc(d.y));
-    pts.exit().remove();
-  }
-
-  return {
-    addPoint(x, y) { data = data.filter(d=>Math.abs(d.x-x)>.005); data.push({x,y}); update(); },
-    clear() { data=[]; linePath.attr('d',null); areaPath.attr('d',null); dotsG.selectAll('*').remove(); },
-  };
-}
-
-function computeAndPlot(xVal) {
-  chartComputing = true;
-  // Show computing state on all wraps
-  ['worst','avg','best','ev'].forEach(k => {
-    const w = document.getElementById('wrap-'+k);
-    if (w) w.style.opacity = '.5';
-  });
-  setTimeout(() => {
-    const m = runAtMinProfit(xVal);
-    chartInstances.worstCase?.addPoint(xVal, m.worstCase);
-    chartInstances.avgProfit?.addPoint(xVal, m.avgProfit);
-    chartInstances.bestCase?.addPoint(xVal, m.bestCase);
-    chartInstances.expectedVal?.addPoint(xVal, m.expectedVal);
-    ['worst','avg','best','ev'].forEach(k => {
-      const w = document.getElementById('wrap-'+k);
-      if (w) w.style.opacity = '1';
-    });
-    chartComputing = false;
-  }, 20);
-}
-
-function clearAllCharts() {
-  Object.values(chartInstances).forEach(c => c?.clear());
-}
+// Pre-fill textarea with example CSV
+document.getElementById('csvInput').value =
+`,Team that won + over or under 217.5 total points.,,,
+Win Margin,Spurs + over ,Spurs + under ,Knicks + over,Knicks + under
+Under 4.5,14.8x,17.3x,15.8x,19.9x
+Under 10.5,5.1x,6x,7.3x,8.6x
+Under 20.5,3.7x,4.1x,5.3x,5.6x`;
 </script>
 </body>
 </html>
