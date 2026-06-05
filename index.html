@@ -779,8 +779,8 @@ function flatToBets(flat) {
   return b;
 }
 
-function optimizeBets(budget, minProfitTarget) {
-  const itersRaw = parseInt(document.getElementById('iterations').value, 10);
+function optimizeBets(budget, minProfitTarget, itersOverride) {
+  const itersRaw = itersOverride !== undefined ? itersOverride : parseInt(document.getElementById('iterations').value, 10);
   const ITERS = Number.isFinite(itersRaw) && itersRaw >= 100 ? itersRaw : 100000;
   const n = BRACKETS.length * COLS.length;
   let flat = new Array(n).fill(budget / n);
@@ -901,9 +901,9 @@ function runOptimizer() {
     } else {
       document.getElementById('chartSection').style.display = 'block';
     }
-    renderBlowoutChart(budget, minProfitTarget);
     btn.disabled = false;
     btn.textContent = 'OPTIMIZE';
+    setTimeout(() => renderBlowoutChart(budget, minProfitTarget), 50);
   }, 30);
 }
 
@@ -1208,7 +1208,7 @@ function computeBlowoutChartData(budget, minProfitTarget) {
       const ef = minProfitTarget + bt;
       const savedBlowoutAt = BLOWOUT_AT;
       BLOWOUT_AT = savedBlowoutAt; // unchanged
-      const bets   = optimizeBets(cb, ef);
+      const bets   = optimizeBets(cb, ef, 5000);
       const hScen  = SCENARIOS.filter(s => !s.isBlowout && !s.isUnhedgeable && s.lo < BLOWOUT_AT);
       const profits = hScen.map(s => calcScenario(bets, s).profit - bt);
       const minP   = profits.length ? Math.min(...profits) : -budget;
