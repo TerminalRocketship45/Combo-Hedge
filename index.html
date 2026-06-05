@@ -809,17 +809,30 @@ function runOptimizer() {
       const isBeyondGuarantee = !s.isBlowout && s.lo >= BLOWOUT_AT;
       return { ...s, ...r, prob: scenProbs[s.rangeKey] || 0, isBeyondGuarantee };
     });
+
+    // Compute blowout hedge cost to subtract from all non-blowout scenario profits
+    const _bhM1 = parseFloat(document.getElementById('bhMult1').value) || 0;
+    const _bhM2 = parseFloat(document.getElementById('bhMult2').value) || 0;
+    const _bhB  = parseFloat(document.getElementById('bhBudget').value) || 0;
+    const _bhH  = (_bhM1 && _bhM2) ? calcBlowoutHedge(_bhB, _bhM1, _bhM2) : null;
+    const hedgeCostAdj = _bhH ? _bhH.totalCost : 0;
+
+    // Adjust non-blowout profits by hedge cost (hedge bet loses in every non-blowout outcome)
+    const adjResults = results.map(r =>
+      (!r.isBlowout && hedgeCostAdj > 0) ? { ...r, profit: r.profit - hedgeCostAdj, hedgeCost: hedgeCostAdj } : r
+    );
+
     // Stats: only hedgeable scenarios within guarantee boundary
-    const hedgeResults = results.filter(r => !r.isBlowout && !r.isUnhedgeable && !r.isBeyondGuarantee);
+    const hedgeResults = adjResults.filter(r => !r.isBlowout && !r.isUnhedgeable && !r.isBeyondGuarantee);
     const hedgeProfits = hedgeResults.map(r => r.profit);
-    const ev = results.reduce((sum, r) => sum + r.profit * r.prob, 0); // EV includes blowout
+    const ev = adjResults.reduce((sum, r) => sum + r.profit * r.prob, 0); // EV includes blowout
     const stats = {
       min: Math.min(...hedgeProfits),
       max: Math.max(...hedgeProfits),
       avg: hedgeProfits.reduce((a, b) => a + b, 0) / hedgeProfits.length,
       ev,
     };
-    render(bets, results, stats, budget, minProfitTarget);
+    render(bets, adjResults, stats, budget, minProfitTarget);
     renderBlowoutHedgeResults(bets, results);
     // Init or re-init charts if budget changed
     if (chartBudget !== budget) {
@@ -1002,6 +1015,10 @@ function render(bets, results, stats, budget, minProfitTarget) {
           <span style="color:var(--muted)">LOSING COSTS FORFEITED</span>
           <span class="neg">-$${fmt(r.losingStaked)}</span>
         </div>
+        ${r.hedgeCost > 0 ? `<div class="net-line" style="border-top:none;margin-top:0;padding-top:0;font-weight:normal;font-size:.62rem">
+          <span style="color:#cc6060">BLOWOUT HEDGE COST</span>
+          <span class="neg">-$${fmt(r.hedgeCost)}</span>
+        </div>` : ''}
         <div class="net-line">
           <span>NET PROFIT</span>
           <span class="${r.profit >= 0 ? 'pos' : 'neg'}">${fmt(r.profit, true)}</span>
