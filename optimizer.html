@@ -172,7 +172,6 @@ Under 20.5,3.7x,4.1x,5.3x,5.6x"></textarea>
     <div class="col">
       <label style="color:var(--green)">Min Guaranteed Profit ($)</label>
       <input type="number" id="minProfit" value="0" step="0.5">
-      <div class="hint">$0 = guarantee break-even. Positive = guarantee a profit floor (blowout excluded).</div>
     </div>
     <div class="col" style="flex:0 0 auto">
       <label style="visibility:hidden">.</label>
@@ -183,6 +182,7 @@ Under 20.5,3.7x,4.1x,5.3x,5.6x"></textarea>
 
 <!-- Results -->
 <div id="results"></div>
+<div id="charts-section"></div>
 
 <div class="placeholder-msg" id="placeholder">Paste your CSV above and click PARSE CSV to begin.</div>
 
@@ -193,6 +193,8 @@ let COLS = [];       // [{key, label, team, total}]
 let MULTIPLIERS = {}; // {bracketKey: {colKey: float}}  — CSV (theoretical) multipliers
 let PRICES = {};     // {bracketKey: {colKey: int}}     — Kalshi price in whole cents ($0.01 snap)
 let SCENARIOS = [];  // [{team, total, lo, hi, rangeKey, isBlowout, isUnhedgeable}]
+let BLOWOUT_MULTS = {};  // { team_key: float }  raw multiplier entered by user
+let BLOWOUT_CAPS  = {};  // { team_key: float }  max loss if that team blows out
 
 // ── Kalshi Rounding ───────────────────────────────────────────────────────────
 // Kalshi prices are in $0.01 steps. The CSV multiplier 1/price may not land on
@@ -231,6 +233,32 @@ function computePrices() {
       PRICES[br.key][col.key] = csvMultToPrice(m);
     }
   }
+}
+
+function computeBlowoutBets(budget) {
+  const bets = {};
+  const teams = [...new Set(COLS.map(c => c.team))];
+  for (const team of teams) {
+    const M   = BLOWOUT_MULTS[team] || 0;
+    const cap = (BLOWOUT_CAPS[team] !== undefined) ? BLOWOUT_CAPS[team] : budget;
+    if (M <= 1 || cap >= budget) { bets[team] = 0; continue; }
+    bets[team] = (budget - cap) / M;
+  }
+  // Safety: clamp so total blowout bets never exceed budget
+  const total = Object.values(bets).reduce((a, b) => a + b, 0);
+  if (total > budget && total > 0) {
+    const scale = budget / total;
+    for (const t of Object.keys(bets)) bets[t] *= scale;
+  }
+  return bets;
+}
+
+function calcBlowoutScenario(blowoutBets, budget, winningTeam) {
+  const M     = BLOWOUT_MULTS[winningTeam] || 0;
+  const stake = blowoutBets[winningTeam]   || 0;
+  const cp    = csvMultToPrice(M);
+  const payout = (stake > 0 && M > 1) ? kalshiPayout(stake, cp) : 0;
+  return { profit: payout - budget, payout, stake, mult: M, centsPrice: cp };
 }
 
 // ── CSV Parsing ───────────────────────────────────────────────────────────────
@@ -368,35 +396,57 @@ function buildScenarios() {
   const thresholds = BRACKETS.map(b => b.threshold);
   const ranges = [];
   let lo = 0;
-  for (const t of thresholds) {
-    ranges.push({ lo, hi: t });
-    lo = t;
-  }
+  for (const t of thresholds) { ranges.push({ lo, hi: t }); lo = t; }
   const scenarios = [];
   for (const team of ['spurs', 'knicks'])
     for (const total of ['over', 'under'])
-      for (const { lo, hi } of ranges) {
-        // A scenario is unhedgeable if every paying bet has actual_mult ≤ 1
-        // (1x gross = you get stake back = net 0, you still lose all other bets)
-        const comboKey = `${team}_${total}`;
-        const payingBrackets = BRACKETS.filter(b => b.threshold > lo);
-        const maxActualMult = payingBrackets.length === 0 ? 0 :
-          Math.max(...payingBrackets.map(br => {
-            const cp = (PRICES[br.key] || {})[comboKey] || 100;
-            return 100 / cp;
-          }));
-        const isUnhedgeable = maxActualMult <= 1.0005; // ≤ 1x actual mult = can't profit
-        scenarios.push({ team, total, lo, hi, rangeKey: `${team}_${total}_${lo}to${hi}`,
-                         isBlowout: false, isUnhedgeable });
-      }
-
-  // Blowout scenarios: margin exceeds every threshold — nothing pays, full stake lost
+      for (const { lo, hi } of ranges)
+        scenarios.push({ team, total, lo, hi, rangeKey: `${team}_${total}_${lo}to${hi}`, isBlowout: false });
   const lastThreshold = thresholds[thresholds.length - 1];
   for (const team of ['spurs', 'knicks'])
     for (const total of ['over', 'under'])
       scenarios.push({ team, total, lo: lastThreshold, hi: Infinity,
-                       rangeKey: `${team}_${total}_blowout`, isBlowout: true, isUnhedgeable: true });
+                       rangeKey: `${team}_${total}_blowout`, isBlowout: true });
   return scenarios;
+}
+
+// ── Hedgeability Check ────────────────────────────────────────────────────────
+// A bracket range (lo, hi) is JOINTLY hedgeable at floor F if we can allocate
+// stakes such that every (team,total) scenario in that range hits profit ≥ F.
+//
+// For a range to achieve profit ≥ F in scenario k, we need:
+//   max_am_k × x_k ≥ F + budget  →  x_k ≥ (F+budget)/max_am_k
+// where x_k = stake on the best paying bet for combo k.
+//
+// Summing over all combos: Σ_k x_k ≥ Σ_k (F+budget)/max_am_k
+// But Σ_k x_k ≤ budget (budget constraint), so the condition is:
+//   Σ_k (1/max_am_k) ≤ budget/(F+budget)
+//
+// If F+budget ≤ 0 (floor ≤ −budget), everything is trivially feasible.
+function isRangeHedgeable(lo, budget, floor) {
+  if (floor + budget <= 0) return true;
+  const payingBrs = BRACKETS.filter(b => b.threshold > lo);
+  if (payingBrs.length === 0) return false; // blowout range
+  const threshold = budget / (floor + budget);
+  const sumInvMaxAm = COLS.reduce((sum, col) => {
+    const maxAm = Math.max(...payingBrs.map(br => {
+      const cp = (PRICES[br.key] || {})[col.key] || 100;
+      return 100 / cp;
+    }));
+    return sum + (maxAm > 0 ? 1 / maxAm : Infinity);
+  }, 0);
+  return sumInvMaxAm <= threshold + 1e-9;
+}
+
+function getHedgeableScenarios(budget, floor) {
+  return SCENARIOS.filter(s => {
+    if (s.isBlowout) return false;
+    return isRangeHedgeable(s.lo, budget, floor);
+  });
+}
+
+function getUnhedgeableScenarios(budget, floor) {
+  return SCENARIOS.filter(s => !s.isBlowout && !isRangeHedgeable(s.lo, budget, floor));
 }
 
 function getPayingBrackets(lo, isBlowout) {
@@ -517,9 +567,9 @@ function optimizeBets(budget, minProfitTarget) {
   let flat = new Array(n).fill(budget / n);
   const penaltyWeight = 500;
 
-  // Exclude blowout AND structurally unhedgeable scenarios (e.g. brackets with mult ≤ 1x).
-  // Unhedgeable = even putting 100% of budget on the winning bet gives net ≤ 0.
-  const hedgeableScenarios = SCENARIOS.filter(s => !s.isBlowout && !s.isUnhedgeable);
+  // Dynamically determine which scenarios can be jointly hedged at this floor+budget.
+  // The joint condition: Σ_k(1/max_am_k) ≤ budget/(floor+budget) per bracket range.
+  const hedgeableScenarios = getHedgeableScenarios(budget, minProfitTarget);
 
   for (let iter = 0; iter < 100000; iter++) {
     const sum = flat.reduce((a, x) => a + Math.max(0, x), 0);
@@ -591,23 +641,24 @@ function runOptimizer() {
   document.getElementById('results').innerHTML = '<div class="placeholder-msg">Running optimizer (100k iterations)...</div>';
 
   setTimeout(() => {
-    const bets   = optimizeBets(budget, minProfitTarget);
+    const bets      = optimizeBets(budget, minProfitTarget);
     const scenProbs = getProbs();
-    const results = SCENARIOS.map(s => {
+    const hedgeable = new Set(getHedgeableScenarios(budget, minProfitTarget).map(s => s.rangeKey));
+    const results   = SCENARIOS.map(s => {
       const r = calcScenario(bets, s);
-      return { ...s, ...r, prob: scenProbs[s.rangeKey] || 0 };
+      const isUnhedgeable = !s.isBlowout && !hedgeable.has(s.rangeKey);
+      return { ...s, ...r, prob: scenProbs[s.rangeKey] || 0, isUnhedgeable };
     });
-    // Stats: exclude blowout AND unhedgeable (e.g. 1x-mult brackets)
-    const hedgeResults = results.filter(r => !r.isBlowout && !r.isUnhedgeable);
-    const hedgeProfits = hedgeResults.map(r => r.profit);
-    const ev = results.reduce((sum, r) => sum + r.profit * r.prob, 0); // EV includes blowout
+    const hedgeResults  = results.filter(r => !r.isBlowout && !r.isUnhedgeable);
+    const hedgeProfits  = hedgeResults.map(r => r.profit);
+    const ev = results.reduce((sum, r) => sum + r.profit * r.prob, 0);
     const stats = {
-      min: Math.min(...hedgeProfits),
-      max: Math.max(...hedgeProfits),
-      avg: hedgeProfits.reduce((a, b) => a + b, 0) / hedgeProfits.length,
+      min: hedgeProfits.length ? Math.min(...hedgeProfits) : 0,
+      max: hedgeProfits.length ? Math.max(...hedgeProfits) : 0,
+      avg: hedgeProfits.length ? hedgeProfits.reduce((a, b) => a + b, 0) / hedgeProfits.length : 0,
       ev,
     };
-    render(bets, results, stats, budget, minProfitTarget);
+    render(bets, results, stats, budget, minProfitTarget, scenProbs);
     btn.disabled = false;
     btn.textContent = 'OPTIMIZE';
   }, 30);
@@ -625,7 +676,7 @@ function rangeLabel(lo, hi) {
   return `Win by ${loInt}–${Math.floor(hi)} pts`;
 }
 
-function render(bets, results, stats, budget, minProfitTarget) {
+function render(bets, results, stats, budget, minProfitTarget, scenProbs) {
   const totalBet = BRACKETS.flatMap(br => COLS.map(col => (bets[br.key] || {})[col.key] || 0)).reduce((a, b) => a + b, 0);
 
   const hedgeResults      = results.filter(r => !r.isBlowout && !r.isUnhedgeable);
@@ -767,13 +818,15 @@ function render(bets, results, stats, budget, minProfitTarget) {
   for (const r of hedgeResults) html += scenarioCard(r);
   html += '</div>';
 
-  // Unhedgeable (1x-mult) scenarios — shown separately like blowouts
+  // Unhedgeable scenarios — shown separately like blowouts
   if (unhedgeableResults.length > 0) {
-    const lowestUnhThresh = unhedgeableResults[0]?.lo ?? '?';
-    html += `<div class="section-title" style="margin-bottom:6px;margin-top:20px;color:var(--red)">UNHEDGEABLE SCENARIOS (bracket mult &le; 1x) — EXCLUDED FROM OPTIMIZER</div>`;
+    const uniqLos = [...new Set(unhedgeableResults.map(r => r.lo))];
+    html += `<div class="section-title" style="margin-bottom:6px;margin-top:20px;color:var(--red)">UNHEDGEABLE SCENARIOS — EXCLUDED FROM OPTIMIZER</div>`;
     html += `<div style="font-size:.6rem;color:#c08080;margin-bottom:10px;line-height:1.6">
-      These margin ranges have a combo multiplier &le; 1x. A 1x gross bet returns only your stake if it wins — you can never profit, because all other bets still lose.
-      Replace the 1x entries in your CSV with real Kalshi multipliers (&gt; 1x) to make these ranges hedgeable.
+      These margin ranges cannot be hedged at the requested floor. Mathematically, covering all ${COLS.length} possible combo outcomes in a range requires
+      &Sigma;(1/best_mult<sub>k</sub>) &le; budget/(floor+budget). If a bracket's multipliers are too low, the budget needed to cover every combo outcome
+      exceeds your total budget — so the optimizer ignores these ranges rather than making everything else worse.
+      Add real Kalshi multipliers to make these ranges hedgeable, or lower your Min Guaranteed Profit target.
     </div>`;
     html += '<div class="scenario-grid">';
     for (const r of unhedgeableResults) html += scenarioCard(r);
@@ -795,6 +848,211 @@ function render(bets, results, stats, budget, minProfitTarget) {
 
   document.getElementById('results').innerHTML = html;
   window.scrollTo({ top: document.getElementById('results').offsetTop - 20, behavior: 'smooth' });
+
+  // Draw charts after DOM is set
+  renderCharts(budget, scenProbs);
+}
+
+// ── Charts ────────────────────────────────────────────────────────────────────
+// For each floor value from -budget to +budget, run a fast optimizer (8k iters)
+// and record worst-case, best-case, avg, and EV. Plot 3 canvas charts.
+
+function optimizeFast(budget, floor, iters) {
+  const n = BRACKETS.length * COLS.length;
+  if (n === 0) return new Array(n).fill(0);
+  let flat = new Array(n).fill(budget / n);
+  const pen = 300;
+  const hScen = getHedgeableScenarios(budget, floor);
+  if (hScen.length === 0) return flatToBets(flat);
+
+  for (let iter = 0; iter < iters; iter++) {
+    const sum = flat.reduce((a, x) => a + Math.max(0, x), 0);
+    if (sum > 0) flat = flat.map(x => Math.max(0, x) * budget / sum);
+    const bets = flatToBets(flat);
+    const profits = hScen.map(s => calcScenario(bets, s).profit);
+    const grad = new Array(n).fill(0);
+    for (const s of hScen) {
+      const { team, total, lo, isBlowout } = s;
+      const comboKey = `${team}_${total}`;
+      const payingSet = new Set(getPayingBrackets(lo, isBlowout).map(b => b.key));
+      BRACKETS.forEach((br, bi) => {
+        COLS.forEach((col, ci) => {
+          const idx = bi * COLS.length + ci;
+          const isPaying = col.key === comboKey && payingSet.has(br.key);
+          const cp = (PRICES[br.key] || {})[col.key] || 100;
+          grad[idx] += (isPaying ? 100/cp - 1 : -1) / hScen.length;
+        });
+      });
+    }
+    const minP = Math.min(...profits);
+    if (minP < floor) {
+      const wP = profits.reduce((b, p, i) => p < profits[b] ? i : b, 0);
+      const wVal = profits[wP];
+      const worst = hScen.filter((_, i) => Math.abs(profits[i] - wVal) < 0.02);
+      for (const s of worst) {
+        const { team, total, lo, isBlowout } = s;
+        const comboKey = `${team}_${total}`;
+        const payingSet = new Set(getPayingBrackets(lo, isBlowout).map(b => b.key));
+        BRACKETS.forEach((br, bi) => {
+          COLS.forEach((col, ci) => {
+            const idx = bi * COLS.length + ci;
+            const isPaying = col.key === comboKey && payingSet.has(br.key);
+            const cp = (PRICES[br.key] || {})[col.key] || 100;
+            grad[idx] += pen * (isPaying ? 100/cp - 1 : -1) / worst.length;
+          });
+        });
+      }
+    }
+    const lr = iter < iters * 0.6 ? 0.00005 : 0.000008;
+    for (let i = 0; i < n; i++) flat[i] = Math.max(0, flat[i] + lr * grad[i]);
+  }
+  const sum = flat.reduce((a, x) => a + Math.max(0, x), 0);
+  if (sum > 0) flat = flat.map(x => Math.max(0, x) * budget / sum);
+  return flatToBets(flat);
+}
+
+function computeChartData(budget, scenProbs) {
+  const STEPS = 30;
+  const floors = [];
+  for (let i = 0; i <= STEPS; i++)
+    floors.push(-budget + (2 * budget * i / STEPS));
+
+  return floors.map(floor => {
+    const bets = optimizeFast(budget, floor, 8000);
+    const hedgeable = new Set(getHedgeableScenarios(budget, floor).map(s => s.rangeKey));
+    const results = SCENARIOS.map(s => {
+      const r = calcScenario(bets, s);
+      const isUnhedgeable = !s.isBlowout && !hedgeable.has(s.rangeKey);
+      return { ...s, ...r, prob: scenProbs[s.rangeKey] || 0, isUnhedgeable };
+    });
+    const hRes = results.filter(r => !r.isBlowout && !r.isUnhedgeable);
+    const hP   = hRes.map(r => r.profit);
+    const ev   = results.reduce((s, r) => s + r.profit * r.prob, 0);
+    return {
+      floor,
+      worst: hP.length ? Math.min(...hP) : -budget,
+      best:  hP.length ? Math.max(...hP) : -budget,
+      avg:   hP.length ? hP.reduce((a, b) => a + b, 0) / hP.length : -budget,
+      ev,
+    };
+  });
+}
+
+function renderCharts(budget, scenProbs) {
+  const container = document.getElementById('charts-section');
+  if (!container) return;
+
+  container.innerHTML = '<div class="placeholder-msg" style="font-size:.7rem">Computing sensitivity charts...</div>';
+
+  // Defer so DOM paints first
+  setTimeout(() => {
+    const data = computeChartData(budget, scenProbs);
+
+    const chartDefs = [
+      { id: 'chart-worst', title: 'WORST CASE vs MIN FLOOR', key: 'worst', color: '#e05a5a' },
+      { id: 'chart-avg',   title: 'AVG PROFIT vs MIN FLOOR',  key: 'avg',   color: '#5a9e6f' },
+      { id: 'chart-ev',    title: 'EXPECTED VALUE vs MIN FLOOR', key: 'ev', color: '#f0c040' },
+    ];
+
+    let html = `<div class="section-title" style="margin-bottom:12px;margin-top:32px">SENSITIVITY — How Min Guaranteed Profit affects outcomes (given $${budget.toFixed(2)} budget)</div>`;
+    html += '<div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(300px,1fr));gap:16px;margin-bottom:24px">';
+    for (const c of chartDefs) {
+      html += `<div style="background:var(--surface);border:1px solid var(--border);border-radius:4px;padding:14px">
+        <div style="font-size:.54rem;letter-spacing:.2em;color:var(--muted);margin-bottom:10px">${c.title}</div>
+        <canvas id="${c.id}" height="160" style="width:100%"></canvas>
+      </div>`;
+    }
+    html += '</div>';
+    container.innerHTML = html;
+
+    for (const c of chartDefs) {
+      const canvas = document.getElementById(c.id);
+      if (!canvas) continue;
+      canvas.width = canvas.offsetWidth || 300;
+      drawChart(canvas, data, c.key, c.color, budget);
+    }
+  }, 50);
+}
+
+function drawChart(canvas, data, key, lineColor, budget) {
+  const ctx = canvas.getContext('2d');
+  const W = canvas.width, H = canvas.height;
+  const PAD = { top: 10, right: 14, bottom: 36, left: 46 };
+  const cW = W - PAD.left - PAD.right;
+  const cH = H - PAD.top - PAD.bottom;
+
+  ctx.clearRect(0, 0, W, H);
+
+  const vals  = data.map(d => d[key]);
+  const floors = data.map(d => d.floor);
+  const minV  = Math.min(...vals, 0);
+  const maxV  = Math.max(...vals, 0);
+  const vRange = maxV - minV || 1;
+  const fRange = floors[floors.length-1] - floors[0] || 1;
+
+  const toX = f => PAD.left + ((f - floors[0]) / fRange) * cW;
+  const toY = v => PAD.top  + (1 - (v - minV) / vRange) * cH;
+
+  // Grid + zero line
+  ctx.strokeStyle = '#2a2a3a';
+  ctx.lineWidth = 1;
+  for (let i = 0; i <= 4; i++) {
+    const y = PAD.top + (i / 4) * cH;
+    ctx.beginPath(); ctx.moveTo(PAD.left, y); ctx.lineTo(PAD.left + cW, y); ctx.stroke();
+    const v = maxV - (i / 4) * vRange;
+    ctx.fillStyle = '#555'; ctx.font = '9px monospace'; ctx.textAlign = 'right';
+    ctx.fillText((v >= 0 ? '+' : '') + v.toFixed(1), PAD.left - 4, y + 3);
+  }
+
+  // Zero profit line
+  if (minV < 0 && maxV > 0) {
+    const y0 = toY(0);
+    ctx.strokeStyle = '#3a3a4a'; ctx.setLineDash([3, 3]);
+    ctx.beginPath(); ctx.moveTo(PAD.left, y0); ctx.lineTo(PAD.left + cW, y0); ctx.stroke();
+    ctx.setLineDash([]);
+  }
+
+  // Current floor vertical marker
+  const curFloor = parseFloat(document.getElementById('minProfit').value) || 0;
+  if (curFloor >= floors[0] && curFloor <= floors[floors.length-1]) {
+    const xF = toX(curFloor);
+    ctx.strokeStyle = '#444466'; ctx.setLineDash([2, 4]);
+    ctx.beginPath(); ctx.moveTo(xF, PAD.top); ctx.lineTo(xF, PAD.top + cH); ctx.stroke();
+    ctx.setLineDash([]);
+  }
+
+  // Data line
+  ctx.strokeStyle = lineColor;
+  ctx.lineWidth = 2;
+  ctx.beginPath();
+  data.forEach((d, i) => {
+    const x = toX(d.floor), y = toY(d[key]);
+    i === 0 ? ctx.moveTo(x, y) : ctx.lineTo(x, y);
+  });
+  ctx.stroke();
+
+  // Fill under line
+  ctx.fillStyle = lineColor + '18';
+  ctx.beginPath();
+  data.forEach((d, i) => { i === 0 ? ctx.moveTo(toX(d.floor), toY(d[key])) : ctx.lineTo(toX(d.floor), toY(d[key])); });
+  ctx.lineTo(toX(floors[floors.length-1]), toY(0));
+  ctx.lineTo(toX(floors[0]), toY(0));
+  ctx.closePath(); ctx.fill();
+
+  // X-axis labels
+  ctx.fillStyle = '#555'; ctx.font = '9px monospace'; ctx.textAlign = 'center';
+  const xTicks = [-budget, 0, budget];
+  for (const f of xTicks) {
+    if (f < floors[0] || f > floors[floors.length-1]) continue;
+    const x = toX(f);
+    ctx.fillText((f >= 0 ? '+' : '') + f.toFixed(1), x, H - PAD.bottom + 14);
+    ctx.strokeStyle = '#333'; ctx.lineWidth = 1;
+    ctx.beginPath(); ctx.moveTo(x, PAD.top + cH); ctx.lineTo(x, PAD.top + cH + 4); ctx.stroke();
+  }
+
+  // X-axis label
+  ctx.fillStyle = '#444'; ctx.font = '8px monospace'; ctx.textAlign = 'center';
+  ctx.fillText('min guaranteed profit ($)', PAD.left + cW/2, H - 2);
 }
 
 function loadProbJson() {
