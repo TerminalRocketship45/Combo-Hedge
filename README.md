@@ -37,19 +37,19 @@ The optimizer finds the dollar allocation across all bets such that:
 2. **Floor guarantee is met** — net profit in the worst-case hedged scenario ≥ your minimum.
 3. **Average profit is maximized** — subject to (1) and (2).
 
-### Kalshi rounding
+### Kalshi combo payout
 
-Kalshi prices are in $0.01 steps. Contracts are **integer-floored**:
+A Kalshi combo settles at $1.00 per contract, and the combo price is the product of the leg prices. You buy `stake / price` contracts **fractionally**, so the multiplier (`= 1/price`) drives the money directly:
 
 ```
-contracts = floor(stake / price)
-actual_charge = contracts × price          # ≤ stake, difference returned unspent
-payout_if_wins = contracts × $1.00
+contracts     = stake × multiplier          # fractional — not floored to integers
+cost          = stake                        # whole stake deployed, nothing returned
+payout_if_wins = floor(stake × multiplier × 100) / 100   # truncated to the cent
 ```
 
-Example: $1.81 at $0.33/contract → 5 contracts → $1.65 charged, $5.00 payout, $0.16 returned.
+Example: $0.10 at 6.05× → 0.605 contracts → **$0.60** payout (the fractional contract is kept — flooring it to whole contracts was a bug that cut `$0.10 × 12.67` down to $1.00 instead of $1.26).
 
-The optimizer accounts for this throughout — scenario profits, floor checks, and the allocation table all use actual post-rounding values.
+The optimizer uses these continuous payouts throughout — scenario profits, floor checks, and the allocation table. The allocation table additionally rounds each *entry amount* up to the nearest $0.10 (Kalshi's input precision).
 
 ### Algorithm: projected gradient ascent with floor penalty
 
@@ -65,7 +65,7 @@ x[i] = x[i] / sum(x) × budget
 For each hedgeable scenario, calculate net profit given current allocations:
 ```
 profit[s] = sum(payout[i] for winning bets i in scenario s)
-           − sum(actual_charge[i] for ALL bets i)
+           − sum(stake[i] for ALL bets i)        # = total winnings − budget
 ```
 
 **3. Compute gradient**

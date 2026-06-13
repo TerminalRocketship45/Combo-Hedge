@@ -366,38 +366,43 @@ let PRICES = {};     // {bracketKey: {colKey: int}}     — Kalshi price in whol
 let SCENARIOS = [];  // [{team, total, lo, hi, rangeKey, isBlowout, isUnhedgeable}]
 let BLOWOUT_AT = Infinity; // guarantee boundary set at optimize-time
 
-// ── Kalshi Rounding ───────────────────────────────────────────────────────────
-// Kalshi prices are in $0.01 steps (nearest cent).
-// Contracts are INTEGERS — Kalshi floors to whole contracts for combo markets.
-// e.g. $1.81 at $0.33/contract → floor(181/33) = 5 contracts
-//   → Kalshi charges 5 × $0.33 = $1.65 and returns $0.16 unspent.
-//   → Payout if wins: 5 × $1.00 = $5.00 (not $5.48 — no fractional contracts).
+// ── Kalshi Combo Payout ─────────────────────────────────────────────────────
+// A combo bet settles at $1.00 per contract; the combo price is the product of
+// the leg prices. You buy stake/price contracts FRACTIONALLY, so the multiplier
+// (= 1/price) drives the money directly:
+//   payout_if_win = stake × multiplier   (truncated to the cent)
+//   cost          = stake                (whole stake deployed, no returned change)
+// e.g. $0.10 @ 6.05x → 0.605 contracts → $0.60 payout (the fractional contract is
+// kept — integer-flooring it was the old bug that cut $0.10 × 12.67 to $1.00).
+//
+// The displayed multiplier is the source of truth. csvMultToPrice is kept only to
+// render an approximate per-contract price label; it never feeds the money math.
 
 function csvMultToPrice(mult) {
-  // Returns price in whole cents (integer). Minimum 1 cent.
+  // Approximate per-contract price in whole cents, for display only. Minimum 1 cent.
   if (!mult || mult <= 0) return 100;
   return Math.max(1, Math.round(100 / mult));
 }
 
-function kalshiContracts(stakeUSD, centsPrice) {
-  // Whole-number contracts Kalshi will fill (integer floor).
-  if (centsPrice <= 0) return 0;
-  return Math.floor(stakeUSD * 100 / centsPrice);
+function kalshiContracts(stakeUSD, mult) {
+  // Fractional contracts filled = stake / price = stake × multiplier (display only).
+  return (mult > 0) ? stakeUSD * mult : 0;
 }
 
-function kalshiPayout(stakeUSD, centsPrice) {
-  // Gross payout in dollars if this bet wins (integer contracts × $1.00).
-  return kalshiContracts(stakeUSD, centsPrice);
+function kalshiPayout(stakeUSD, mult) {
+  // Gross payout if this bet wins = stake × multiplier, truncated to the cent.
+  if (mult <= 0) return 0;
+  return Math.floor(stakeUSD * mult * 100) / 100;
 }
 
-function kalshiCost(stakeUSD, centsPrice) {
-  // Actual dollars Kalshi charges = integer contracts × price.
-  // Always ≤ stakeUSD. The difference is returned to you unspent.
-  return kalshiContracts(stakeUSD, centsPrice) * centsPrice / 100;
+function kalshiCost(stakeUSD) {
+  // Whole stake is deployed (fractional contracts ⇒ nothing returned unspent).
+  return stakeUSD;
 }
 
-function actualMult(centsPrice) {
-  return centsPrice > 0 ? (100 / centsPrice) : 0;
+function actualMult(mult) {
+  // Multiplier is taken as-is — no penny-quantization round-trip.
+  return mult > 0 ? mult : 0;
 }
 
 function ceilToDime(x) {
@@ -511,8 +516,8 @@ function parseCSV() {
 
   const unhedgeableBrackets = brackets.filter(br =>
     cols.every(col => {
-      const cp = (PRICES[br.key] || {})[col.key] || 100;
-      return (100 / cp) <= 1.0005;
+      const m = (MULTIPLIERS[br.key] || {})[col.key] || 1;
+      return m <= 1.0005;
     })
   );
   const warnHtml = unhedgeableBrackets.length > 0
@@ -538,8 +543,7 @@ function renderParsedPreview() {
       const m = (MULTIPLIERS[br.key] || {})[col.key];
       const cp = (PRICES[br.key] || {})[col.key];
       if (m) {
-        const am = cp ? (100 / cp).toFixed(2) : m.toFixed(2);
-        const priceLabel = cp ? `$0.${cp.toString().padStart(2,'0')} → ${am}x` : '';
+        const priceLabel = cp ? `≈ $0.${cp.toString().padStart(2,'0')}/contract` : '';
         html += `<td class="mult" title="${priceLabel}">${m}x<div style="font-size:.48rem;color:var(--dim)">${priceLabel}</div></td>`;
       } else {
         html += '<td style="color:var(--dim)">—</td>';
@@ -570,10 +574,8 @@ function buildScenarios() {
         const comboKey = `${team}_${total}`;
         const payingBrackets = BRACKETS.filter(b => b.threshold > lo);
         const maxActualMult = payingBrackets.length === 0 ? 0 :
-          Math.max(...payingBrackets.map(br => {
-            const cp = (PRICES[br.key] || {})[comboKey] || 100;
-            return 100 / cp;
-          }));
+          Math.max(...payingBrackets.map(br =>
+            (MULTIPLIERS[br.key] || {})[comboKey] || 1));
         const isUnhedgeable = maxActualMult <= 1.0005; // ≤ 1x actual mult = can't profit
         scenarios.push({ team, total, lo, hi, rangeKey: `${team}_${total}_${lo}to${hi}`,
                          isBlowout: false, isUnhedgeable });
@@ -606,14 +608,14 @@ function calcScenario(bets, scenario) {
       const stake = (bets[br.key] || {})[col.key] || 0;
       const wins = col.key === comboKey && payingSet.has(br.key);
       const csvMult = (MULTIPLIERS[br.key] || {})[col.key] || 1;
-      const cp = (PRICES[br.key] || {})[col.key] || 100; // cents price
-      // Kalshi floors to integer contracts; actual cost ≤ stake, difference returned unspent
-      const payout = wins ? kalshiPayout(stake, cp) : 0;
-      const cost   = kalshiCost(stake, cp); // what Kalshi actually charges
+      const cp = (PRICES[br.key] || {})[col.key] || 100; // cents price (display only)
+      // Fractional contracts: payout = stake × multiplier, whole stake deployed.
+      const payout = wins ? kalshiPayout(stake, csvMult) : 0;
+      const cost   = kalshiCost(stake);
       totalWinnings  += payout;
       totalActualCost += cost;
       breakdown.push({ brKey: br.key, brLabel: br.label, colKey: col.key, colLabel: col.label,
-                       stake, cost, csvMult, centsPrice: cp, actMult: 100/cp, payout, wins });
+                       stake, cost, csvMult, centsPrice: cp, actMult: csvMult, payout, wins });
     }
   }
   const losingCost = breakdown.filter(b => !b.wins).reduce((a, b) => a + b.cost, 0);
@@ -744,9 +746,8 @@ function optimizeBets(budget, minProfitTarget, itersOverride) {
         COLS.forEach((col, ci) => {
           const idx = bi * COLS.length + ci;
           const isPaying = col.key === comboKey && payingSet.has(br.key);
-          // Use actual Kalshi multiplier (after penny quantization) for gradient
-          const cp = (PRICES[br.key] || {})[col.key] || 100;
-          const am = 100 / cp;
+          // Continuous payout: gradient uses the raw multiplier (no penny snap).
+          const am = (MULTIPLIERS[br.key] || {})[col.key] || 1;
           grad[idx] += (isPaying ? am - 1 : -1) / hedgeableScenarios.length;
         });
       });
@@ -764,8 +765,7 @@ function optimizeBets(budget, minProfitTarget, itersOverride) {
           COLS.forEach((col, ci) => {
             const idx = bi * COLS.length + ci;
             const isPaying = col.key === comboKey && payingSet.has(br.key);
-            const cp = (PRICES[br.key] || {})[col.key] || 100;
-            const am = 100 / cp;
+            const am = (MULTIPLIERS[br.key] || {})[col.key] || 1;
             grad[idx] += penaltyWeight * (isPaying ? am - 1 : -1) / worst.length;
           });
         });
@@ -916,11 +916,12 @@ function render(bets, results, stats, budget, minProfitTarget) {
     for (const col of COLS) {
       const stake     = (bets[br.key] || {})[col.key] || 0;
       const cp        = (PRICES[br.key] || {})[col.key] || 100;
-      const contracts = kalshiContracts(stake, cp);
-      const cost      = contracts * cp / 100;
+      const mult      = (MULTIPLIERS[br.key] || {})[col.key] || 1;
+      const contracts = kalshiContracts(stake, mult);
+      const cost      = kalshiCost(stake);
       const enterAmt  = ceilToDime(cost); // round up to nearest $0.10 — Kalshi's input precision
       const returned  = parseFloat((enterAmt - cost).toFixed(2));
-      betGrid[br.key][col.key] = { stake, cp, contracts, cost, enterAmt, returned };
+      betGrid[br.key][col.key] = { stake, cp, mult, contracts, cost, enterAmt, returned };
       totalDeployed += cost;
       totalEnterAmt += enterAmt;
     }
@@ -929,8 +930,8 @@ function render(bets, results, stats, budget, minProfitTarget) {
 
   html += `<div class="section-title" style="margin-bottom:4px">BET ALLOCATION — enter these amounts in Kalshi</div>`;
   html += `<div style="font-size:.54rem;color:var(--dim);margin-bottom:10px;line-height:1.6">
-    Amounts are rounded up to the nearest <strong style="color:var(--text)">$0.10</strong> (Kalshi's input precision). Kalshi floors to whole contracts and refunds any unspent cents.
-    Total to enter: <strong style="color:var(--text)">$${totalEnterAmt.toFixed(1)}</strong> · Kalshi actually charges: <strong style="color:var(--text)">$${totalDeployed.toFixed(2)}</strong>
+    Combo bets fill fractionally — the whole stake is deployed. Amounts are rounded up to the nearest <strong style="color:var(--text)">$0.10</strong> (Kalshi's input precision).
+    Total to enter: <strong style="color:var(--text)">$${totalEnterAmt.toFixed(1)}</strong> · Optimizer stake: <strong style="color:var(--text)">$${totalDeployed.toFixed(2)}</strong>
     ${remainder > 0.005 ? `· <span style="color:var(--gold)">$${remainder.toFixed(2)} of budget unused</span>` : `· <span style="color:var(--green)">Budget fully deployed</span>`}
   </div>`;
   html += '<div class="alloc-wrap"><table class="alloc-table"><thead><tr><th class="left">MARGIN</th>';
@@ -939,16 +940,17 @@ function render(bets, results, stats, budget, minProfitTarget) {
   for (const br of BRACKETS) {
     html += `<tr><td class="margin-col">${br.label}</td>`;
     for (const col of COLS) {
-      const { stake, cp, contracts, cost, enterAmt, returned } = betGrid[br.key][col.key];
-      const am = (100 / cp).toFixed(2);
+      const { stake, cp, mult, contracts, cost, enterAmt, returned } = betGrid[br.key][col.key];
+      const am = mult.toFixed(2);
       const priceStr = `$0.${cp.toString().padStart(2,'0')}`;
+      const payout = kalshiPayout(stake, mult);
       if (cost < 0.005) {
         html += `<td style="color:var(--dim);text-align:center;font-size:.6rem">—</td>`;
       } else {
-        html += `<td title="Price: ${priceStr} · ${contracts} contracts · optimizer stake $${stake.toFixed(2)}">
+        html += `<td title="≈ ${priceStr}/contract · ${contracts.toFixed(2)} contracts · optimizer stake $${stake.toFixed(2)}">
           <div class="bet-amount">$${enterAmt.toFixed(1)}</div>
-          <div class="bet-mult">${am}x · ${contracts} cts <span style="color:var(--dim)">→ $${contracts.toFixed(0)}</span></div>
-          ${returned > 0.005 ? `<div style="font-size:.44rem;color:var(--dim)">↩ $${returned.toFixed(2)} refunded by Kalshi</div>` : ''}
+          <div class="bet-mult">${am}x · ${contracts.toFixed(2)} cts <span style="color:var(--dim)">→ $${payout.toFixed(2)}</span></div>
+          ${returned > 0.005 ? `<div style="font-size:.44rem;color:var(--dim)">↩ $${returned.toFixed(2)} over (dime rounding)</div>` : ''}
         </td>`;
       }
     }
@@ -1550,7 +1552,7 @@ function getTotalDeployed(bets) {
   for (const br of BRACKETS)
     for (const col of COLS) {
       const stake = (bets[br.key] || {})[col.key] || 0;
-      total += kalshiCost(stake, (PRICES[br.key] || {})[col.key] || 100);
+      total += kalshiCost(stake);
     }
   return total;
 }
@@ -1558,19 +1560,21 @@ function getTotalDeployed(bets) {
 function calcBlowoutHedge(hedgeBudget, mult1, mult2) {
   if (!mult1 || !mult2 || hedgeBudget <= 0) return null;
   const half = hedgeBudget / 2;
-  const cp1 = csvMultToPrice(mult1);
+  const cp1 = csvMultToPrice(mult1);   // display-only price label
   const cp2 = csvMultToPrice(mult2);
-  const contracts1 = kalshiContracts(half, cp1);
-  const contracts2 = kalshiContracts(half, cp2);
-  const cost1 = contracts1 * cp1 / 100;
-  const cost2 = contracts2 * cp2 / 100;
+  const contracts1 = kalshiContracts(half, mult1);  // fractional
+  const contracts2 = kalshiContracts(half, mult2);
+  const cost1 = kalshiCost(half);      // whole stake deployed
+  const cost2 = kalshiCost(half);
+  const payout1 = kalshiPayout(half, mult1);  // stake × mult, truncated to cent
+  const payout2 = kalshiPayout(half, mult2);
   return {
-    cp1, cp2, contracts1, contracts2, cost1, cost2,
+    cp1, cp2, mult1, mult2, contracts1, contracts2, cost1, cost2,
     totalCost: cost1 + cost2,
-    payout1: contracts1,   // $1 per contract
-    payout2: contracts2,
-    netTeam1Blowout: contracts1 - cost1 - cost2,
-    netTeam2Blowout: contracts2 - cost2 - cost1,
+    payout1,
+    payout2,
+    netTeam1Blowout: payout1 - cost1 - cost2,
+    netTeam2Blowout: payout2 - cost2 - cost1,
   };
 }
 
@@ -1614,8 +1618,8 @@ function renderBlowoutHedgeResults(bets, results) {
 
   const final1 = comboLoss + hedge.netTeam1Blowout;
   const final2 = comboLoss + hedge.netTeam2Blowout;
-  const am1    = (100 / hedge.cp1).toFixed(2);
-  const am2    = (100 / hedge.cp2).toFixed(2);
+  const am1    = hedge.mult1.toFixed(2);
+  const am2    = hedge.mult2.toFixed(2);
 
   html += `<div style="font-size:.52rem;color:var(--dim);margin-bottom:16px;line-height:1.8">`;
   html += `Blowout threshold: <strong style="color:var(--text)">${maxThr} pts</strong>. `;
@@ -1636,12 +1640,12 @@ function renderBlowoutHedgeResults(bets, results) {
   // Column 2: Hedge position
   html += `<div style="background:var(--surface2);border:1px solid #2a1818;padding:14px;border-radius:3px">`;
   html += `<div style="font-size:.48rem;letter-spacing:.2em;color:#cc6060;margin-bottom:10px;padding-bottom:6px;border-bottom:1px solid var(--border2)">HEDGE POSITION</div>`;
-  html += `<div class="detail-row"><span class="dr-l">${t1Name} Over ${maxThr}</span><span class="dr-r">${am1}x · ${hedge.contracts1} cts</span></div>`;
+  html += `<div class="detail-row"><span class="dr-l">${t1Name} Over ${maxThr}</span><span class="dr-r">${am1}x · ${hedge.contracts1.toFixed(2)} cts</span></div>`;
   html += `<div class="detail-row"><span class="dr-l" style="padding-left:8px">cost</span><span class="dr-r neg">-$${hedge.cost1.toFixed(2)}</span></div>`;
-  html += `<div class="detail-row"><span class="dr-l" style="padding-left:8px">payout if wins</span><span class="dr-r pos">+$${hedge.payout1.toFixed(0)}</span></div>`;
-  html += `<div class="detail-row" style="margin-top:6px"><span class="dr-l">${t2Name} Over ${maxThr}</span><span class="dr-r">${am2}x · ${hedge.contracts2} cts</span></div>`;
+  html += `<div class="detail-row"><span class="dr-l" style="padding-left:8px">payout if wins</span><span class="dr-r pos">+$${hedge.payout1.toFixed(2)}</span></div>`;
+  html += `<div class="detail-row" style="margin-top:6px"><span class="dr-l">${t2Name} Over ${maxThr}</span><span class="dr-r">${am2}x · ${hedge.contracts2.toFixed(2)} cts</span></div>`;
   html += `<div class="detail-row"><span class="dr-l" style="padding-left:8px">cost</span><span class="dr-r neg">-$${hedge.cost2.toFixed(2)}</span></div>`;
-  html += `<div class="detail-row"><span class="dr-l" style="padding-left:8px">payout if wins</span><span class="dr-r pos">+$${hedge.payout2.toFixed(0)}</span></div>`;
+  html += `<div class="detail-row"><span class="dr-l" style="padding-left:8px">payout if wins</span><span class="dr-r pos">+$${hedge.payout2.toFixed(2)}</span></div>`;
   html += `<div style="font-size:.48rem;color:var(--dim);margin-top:8px;padding-top:6px;border-top:1px solid var(--border2)">Total hedge cost: <strong style="color:var(--text)">$${hedge.totalCost.toFixed(2)}</strong></div>`;
   html += `</div>`;
 
